@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raspberry Pi & Alternativas Universe - Specs & Pinouts</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        raspberry: {
+                            50: '#fdf2f4',
+                            100: '#fce7eb',
+                            500: '#e31b5d',
+                            600: '#c5124b',
+                            700: '#a30f3f',
+                            900: '#7a0b2e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f17;
+            color: #f3f4f6;
+        }
+        .glow-effect {
+            box-shadow: 0 0 25px rgba(227, 27, 93, 0.15);
+        }
+        .glow-effect-hover:hover {
+            box-shadow: 0 0 35px rgba(227, 27, 93, 0.3);
+            transform: translateY(-3px);
+            transition: all 0.3s ease;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f17;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f2937;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #e31b5d;
+        }
+        .pin-hover:hover {
+            filter: brightness(1.2);
+            transform: scale(1.05);
+            transition: all 0.2s ease;
+        }
+    </style>
+</head>
+<body class="bg-[#0b0f17] text-gray-100 min-h-screen flex flex-col selection:bg-raspberry-500 selection:text-white">
+
+    <header class="sticky top-0 z-50 backdrop-blur-md bg-[#0b0f17]/85 border-b border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('home')">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-raspberry-600 to-raspberry-500 flex items-center justify-center glow-effect">
+                    <i class="fa-solid fa-microchip text-white text-xl"></i>
+                </div>
+                <span class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-gray-200 to-raspberry-500 bg-clip-text text-transparent">
+                    Pi Universe Pro
+                </span>
+            </div>
+            
+            <!-- Desktop Navigation -->
+            <nav class="hidden md:flex space-x-1 lg:space-x-2">
+                <button onclick="switchTab('home')" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all text-gray-300 hover:text-white hover:bg-gray-800/60 active-tab" data-target="home">Início</button>
+                <button onclick="switchTab('models')" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all text-gray-300 hover:text-white hover:bg-gray-800/60" data-target="models">Modelos & Specs</button>
+                <button onclick="switchTab('pinout')" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all text-gray-300 hover:text-white hover:bg-gray-800/60" data-target="pinout">Guia de Pinout GPIO</button>
+                <button onclick="switchTab('alternatives')" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all text-gray-300 hover:text-white hover:bg-gray-800/60" data-target="alternatives">Cópias & Alternativas</button>
+                <button onclick="switchTab('accessories')" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all text-gray-300 hover:text-white hover:bg-gray-800/60" data-target="accessories">Acessórios</button>
+            </nav>
+
+            <!-- Mobile menu button -->
+            <div class="md:hidden flex items-center">
+                <button id="mobile-menu-btn" class="text-gray-400 hover:text-white focus:outline-none p-2">
+                    <i class="fa-solid fa-bars text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Menu Dropdown -->
+        <div id="mobile-menu" class="hidden md:hidden bg-[#0b0f17] border-b border-gray-800 px-4 pt-2 pb-4 space-y-1">
+            <button onclick="switchTab('home'); toggleMobileMenu();" class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-gray-800">Início</button>
+            <button onclick="switchTab('models'); toggleMobileMenu();" class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-gray-800">Modelos & Specs</button>
+            <button onclick="switchTab('pinout'); toggleMobileMenu();" class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-gray-800">Guia de Pinout GPIO</button>
+            <button onclick="switchTab('alternatives'); toggleMobileMenu();" class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-gray-800">Cópias & Alternativas</button>
+            <button onclick="switchTab('accessories'); toggleMobileMenu();" class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-gray-800">Acessórios</button>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
+
+        <!-- TAB 1: HOME -->
+        <section id="tab-home" class="tab-content space-y-16">
+            <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-gray-900 via-gray-900 to-raspberry-950 border border-gray-800 p-8 sm:p-12 lg:p-16 glow-effect">
+                <div class="absolute -right-20 -bottom-20 w-96 h-96 bg-raspberry-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="relative z-10 max-w-2xl space-y-6">
+                    <span class="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-semibold bg-raspberry-500/20 text-raspberry-400 border border-raspberry-500/30">
+                        <i class="fa-solid fa-microchip"></i> <span>Enciclopédia Completa de SBCs & Microcontroladores</span>
+                    </span>
+                    <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
+                        Especificações & <span class="text-raspberry-500">Pinouts Oficiais</span>
+                    </h1>
+                    <p class="text-gray-300 text-base sm:text-lg leading-relaxed">
+                        Explore especificações técnicas detalhadas, diagramas de pinos GPIO de 40 pinos e conheça o ecossistema completo de placas Raspberry Pi e seus equivalentes de mercado.
+                    </p>
+                    <div class="flex flex-wrap gap-4 pt-4">
+                        <button onclick="switchTab('models')" class="px-6 py-3 rounded-xl bg-raspberry-600 hover:bg-raspberry-700 text-white font-semibold shadow-lg shadow-raspberry-600/30 transition-all">
+                            Ver Especificações (Specs) <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </button>
+                        <button onclick="switchTab('pinout')" class="px-6 py-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold border border-gray-700 transition-all">
+                            Explorar Pinout GPIO
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick stats grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="bg-gray-900/60 border border-gray-800 p-6 rounded-2xl space-y-2">
+                    <div class="text-raspberry-500 text-2xl font-bold"><i class="fa-solid fa-list-check"></i></div>
+                    <div class="text-2xl font-bold text-white">6+ Gerações</div>
+                    <p class="text-gray-400 text-xs">Modelos oficiais catalogados com specs completas.</p>
+                </div>
+                <div class="bg-gray-900/60 border border-gray-800 p-6 rounded-2xl space-y-2">
+                    <div class="text-raspberry-500 text-2xl font-bold"><i class="fa-solid fa-network-wired"></i></div>
+                    <div class="text-2xl font-bold text-white">40 Pinos</div>
+                    <p class="text-gray-400 text-xs">Diagramas interativos de pinout padrão para GPIO.</p>
+                </div>
+                <div class="bg-gray-900/60 border border-gray-800 p-6 rounded-2xl space-y-2">
+                    <div class="text-raspberry-500 text-2xl font-bold"><i class="fa-solid fa-bolt"></i></div>
+                    <div class="text-2xl font-bold text-white">Alternativas</div>
+                    <p class="text-gray-400 text-xs">Orange Pi, Banana Pi e Radxa comparados em detalhe.</p>
+                </div>
+                <div class="bg-gray-900/60 border border-gray-800 p-6 rounded-2xl space-y-2">
+                    <div class="text-raspberry-500 text-2xl font-bold"><i class="fa-solid fa-plug"></i></div>
+                    <div class="text-2xl font-bold text-white">Acessórios</div>
+                    <p class="text-gray-400 text-xs">Fontes, cases, HATs e armazenamento NVMe.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: MODELS & SPECS -->
+        <section id="tab-models" class="tab-content hidden space-y-8">
+            <div class="text-center max-w-3xl mx-auto space-y-3">
+                <h2 class="text-3xl font-bold tracking-tight text-white">Especificações Técnicas (Specs) por Modelo</h2>
+                <p class="text-gray-400">Consulte processadores, memória RAM, conectividade e portas de cada versão do Raspberry Pi.</p>
+            </div>
+
+            <!-- Search & Filter bar -->
+            <div class="flex flex-col sm:flex-row justify-between gap-4 items-center bg-gray-900/50 p-4 rounded-2xl border border-gray-800">
+                <div class="relative w-full sm:w-80">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><i class="fa-solid fa-search"></i></span>
+                    <input type="text" id="model-search" placeholder="Buscar modelo..." oninput="filterModels()" class="w-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-700 rounded-xl text-sm text-white focus:outline-none focus:border-raspberry-500">
+                </div>
+                <div class="flex gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+                    <button onclick="filterModelCategory('all')" class="mod-cat-btn px-4 py-2 rounded-xl text-xs font-semibold bg-raspberry-600 text-white shrink-0">Todos</button>
+                    <button onclick="filterModelCategory('sbc')" class="mod-cat-btn px-4 py-2 rounded-xl text-xs font-semibold bg-gray-800 text-gray-300 hover:bg-gray-700 shrink-0">Placas SBC</button>
+                    <button onclick="filterModelCategory('zero')" class="mod-cat-btn px-4 py-2 rounded-xl text-xs font-semibold bg-gray-800 text-gray-300 hover:bg-gray-700 shrink-0">Linha Zero</button>
+                    <button onclick="filterModelCategory('mcu')" class="mod-cat-btn px-4 py-2 rounded-xl text-xs font-semibold bg-gray-800 text-gray-300 hover:bg-gray-700 shrink-0">Microcontroladores</button>
+                </div>
+            </div>
+
+            <!-- Detailed Specs Cards Grid -->
+            <div id="models-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Pi 5 Specs Card -->
+                <div class="model-card bg-gray-900/70 border border-gray-800 rounded-2xl p-6 space-y-6 glow-effect-hover" data-category="sbc" data-name="raspberry pi 5">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="px-3 py-1 bg-raspberry-500/20 text-raspberry-400 border border-raspberry-500/30 text-xs font-bold rounded-lg">Flagship / Mais Recente</span>
+                            <h3 class="text-2xl font-bold text-white mt-2">Raspberry Pi 5</h3>
+                        </div>
+                        <span class="text-gray-400 text-xs font-mono bg-gray-800 px-2 py-1 rounded">Out 2023</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-microchip text-raspberry-500 mr-1"></i> Processador (SoC)</span>
+                            <strong class="text-gray-200 text-sm">Broadcom BCM2712 Quad-core ARM Cortex-A76 @ 2.4GHz</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-memory text-raspberry-500 mr-1"></i> Memória RAM</span>
+                            <strong class="text-gray-200 text-sm">4GB ou 8GB LPDDR4X-4267</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-display text-raspberry-500 mr-1"></i> Vídeo & Gráficos</span>
+                            <strong class="text-gray-200 text-sm">VideoCore VII GPU @ 800MHz (2x Micro-HDMI 4K @ 60Hz)</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-wifi text-raspberry-500 mr-1"></i> Conectividade</span>
+                            <strong class="text-gray-200 text-sm">Wi-Fi 802.11ac Dual-band, BT 5.0, Gigabit Ethernet</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1 sm:col-span-2">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-plug text-raspberry-500 mr-1"></i> Portas & Expansão</span>
+                            <strong class="text-gray-200 text-sm">2x USB 3.0, 2x USB 2.0, Conector PCIe 2.0 x1 (para NVMe), GPIO de 40 pinos, 2x MIPI CSI/DSI</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pi 4 B Specs Card -->
+                <div class="model-card bg-gray-900/70 border border-gray-800 rounded-2xl p-6 space-y-6 glow-effect-hover" data-category="sbc" data-name="raspberry pi 4 model b">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="px-3 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs font-bold rounded-lg">Popular Desktop</span>
+                            <h3 class="text-2xl font-bold text-white mt-2">Raspberry Pi 4 Model B</h3>
+                        </div>
+                        <span class="text-gray-400 text-xs font-mono bg-gray-800 px-2 py-1 rounded">Jun 2019</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-microchip text-raspberry-500 mr-1"></i> Processador (SoC)</span>
+                            <strong class="text-gray-200 text-sm">Broadcom BCM2711 Quad-core ARM Cortex-A72 @ 1.5GHz</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-memory text-raspberry-500 mr-1"></i> Memória RAM</span>
+                            <strong class="text-gray-200 text-sm">1GB, 2GB, 4GB ou 8GB LPDDR4</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-display text-raspberry-500 mr-1"></i> Vídeo & Gráficos</span>
+                            <strong class="text-gray-200 text-sm">VideoCore VI GPU (2x Micro-HDMI até 4K @ 30Hz)</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-wifi text-raspberry-500 mr-1"></i> Conectividade</span>
+                            <strong class="text-gray-200 text-sm">Wi-Fi 802.11ac, Bluetooth 5.0, Gigabit Ethernet Real</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1 sm:col-span-2">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-plug text-raspberry-500 mr-1"></i> Portas & Expansão</span>
+                            <strong class="text-gray-200 text-sm">2x USB 3.0, 2x USB 2.0, USB-C (Alimentação), GPIO de 40 pinos</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pi 3 B+ Specs Card -->
+                <div class="model-card bg-gray-900/70 border border-gray-800 rounded-2xl p-6 space-y-6 glow-effect-hover" data-category="sbc" data-name="raspberry pi 3 model b plus">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="px-3 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold rounded-lg">Clássico / Industrial</span>
+                            <h3 class="text-2xl font-bold text-white mt-2">Raspberry Pi 3 Model B+</h3>
+                        </div>
+                        <span class="text-gray-400 text-xs font-mono bg-gray-800 px-2 py-1 rounded">Mar 2018</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-microchip text-raspberry-500 mr-1"></i> Processador (SoC)</span>
+                            <strong class="text-gray-200 text-sm">Broadcom BCM2837B0 Quad-core ARM Cortex-A53 @ 1.4GHz</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-memory text-raspberry-500 mr-1"></i> Memória RAM</span>
+                            <strong class="text-gray-200 text-sm">1GB LPDDR2 SDRAM</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-display text-raspberry-500 mr-1"></i> Vídeo & Gráficos</span>
+                            <strong class="text-gray-200 text-sm">Broadcom VideoCore IV (HDMI Full HD 1080p)</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-wifi text-raspberry-500 mr-1"></i> Conectividade</span>
+                            <strong class="text-gray-200 text-sm">Wi-Fi Dual-band 2.4GHz / 5GHz, BT 4.2, Gigabit Ethernet USB 2.0</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1 sm:col-span-2">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-plug text-raspberry-500 mr-1"></i> Portas & Expansão</span>
+                            <strong class="text-gray-200 text-sm">4x USB 2.0, Micro-USB (Alimentação 5V/2.5A), Porta de áudio P2, GPIO 40 pinos</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pi Zero 2 W Specs Card -->
+                <div class="model-card bg-gray-900/70 border border-gray-800 rounded-2xl p-6 space-y-6 glow-effect-hover" data-category="zero" data-name="raspberry pi zero 2 w">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold rounded-lg">Miniatura IoT</span>
+                            <h3 class="text-2xl font-bold text-white mt-2">Raspberry Pi Zero 2 W</h3>
+                        </div>
+                        <span class="text-gray-400 text-xs font-mono bg-gray-800 px-2 py-1 rounded">Out 2021</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-microchip text-raspberry-500 mr-1"></i> Processador (SoC)</span>
+                            <strong class="text-gray-200 text-sm">RP3A0 SiP (Quad-core ARM Cortex-A53 @ 1.0GHz)</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-memory text-raspberry-500 mr-1"></i> Memória RAM</span>
+                            <strong class="text-gray-200 text-sm">512MB LPDDR2 SDRAM</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-display text-raspberry-500 mr-1"></i> Vídeo & Gráficos</span>
+                            <strong class="text-gray-200 text-sm">Mini-HDMI (Suporte a 1080p @ 60Hz)</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-wifi text-raspberry-500 mr-1"></i> Conectividade</span>
+                            <strong class="text-gray-200 text-sm">Wi-Fi 802.11 b/g/n 2.4GHz, Bluetooth 4.2 BLE</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1 sm:col-span-2">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-plug text-raspberry-500 mr-1"></i> Portas & Expansão</span>
+                            <strong class="text-gray-200 text-sm">Micro-USB OTG, Micro-USB (Energia), Header GPIO de 40 pinos (não soldado)</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Raspberry Pi Pico / W Specs Card -->
+                <div class="model-card bg-gray-900/70 border border-gray-800 rounded-2xl p-6 space-y-6 glow-effect-hover" data-category="mcu" data-name="raspberry pi pico microcontroller">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="px-3 py-1 bg-purple-500/20 text-purple-400 border border-purple-500/30 text-xs font-bold rounded-lg">Microcontrolador</span>
+                            <h3 class="text-2xl font-bold text-white mt-2">Raspberry Pi Pico / Pico W</h3>
+                        </div>
+                        <span class="text-gray-400 text-xs font-mono bg-gray-800 px-2 py-1 rounded">Jan 2021</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-microchip text-raspberry-500 mr-1"></i> Processador (MCU)</span>
+                            <strong class="text-gray-200 text-sm">RP2040 (Dual ARM Cortex-M0+ @ 133MHz)</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-memory text-raspberry-500 mr-1"></i> Memória RAM & Flash</span>
+                            <strong class="text-gray-200 text-sm">264KB SRAM, 2MB Flash QSPI embarcada</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-wifi text-raspberry-500 mr-1"></i> Conectividade (Versão W)</span>
+                            <strong class="text-gray-200 text-sm">Infineon CYW43439 (Wi-Fi 4 802.11n & Bluetooth 5.2)</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-code text-raspberry-500 mr-1"></i> Linguagens</span>
+                            <strong class="text-gray-200 text-sm">MicroPython, C / C++ SDK oficial</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1 sm:col-span-2">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-plug text-raspberry-500 mr-1"></i> Pinos & E/S</span>
+                            <strong class="text-gray-200 text-sm">40 pinos castellated (26 pinos GPIO multifunção, ADC de 12-bit, I2C, SPI, PWM)</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Raspberry Pi 400 Specs Card -->
+                <div class="model-card bg-gray-900/70 border border-gray-800 rounded-2xl p-6 space-y-6 glow-effect-hover" data-category="sbc" data-name="raspberry pi 400 computer keyboard">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="px-3 py-1 bg-pink-500/20 text-pink-400 border border-pink-500/30 text-xs font-bold rounded-lg">Computador em Teclado</span>
+                            <h3 class="text-2xl font-bold text-white mt-2">Raspberry Pi 400</h3>
+                        </div>
+                        <span class="text-gray-400 text-xs font-mono bg-gray-800 px-2 py-1 rounded">Nov 2020</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-microchip text-raspberry-500 mr-1"></i> Processador (SoC)</span>
+                            <strong class="text-gray-200 text-sm">Broadcom BCM2711 Quad-core ARM Cortex-A72 @ 1.8GHz</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-memory text-raspberry-500 mr-1"></i> Memória RAM</span>
+                            <strong class="text-gray-200 text-sm">4GB LPDDR4-3200 SDRAM</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-display text-raspberry-500 mr-1"></i> Vídeo & Áudio</span>
+                            <strong class="text-gray-200 text-sm">2x Micro-HDMI (suporte até 4K @ 60Hz) com dissipador integrado</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-wifi text-raspberry-500 mr-1"></i> Conectividade</span>
+                            <strong class="text-gray-200 text-sm">Wi-Fi Dual-band, Bluetooth 5.0, Gigabit Ethernet</strong>
+                        </div>
+                        <div class="bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 space-y-1 sm:col-span-2">
+                            <span class="text-gray-400 block"><i class="fa-solid fa-plug text-raspberry-500 mr-1"></i> Portas & Expansão</span>
+                            <strong class="text-gray-200 text-sm">Teclado compacto integrado, 2x USB 3.0, 1x USB 2.0, Header GPIO de 40 pinos na traseira</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: PINOUT -->
+        <section id="tab-pinout" class="tab-content hidden space-y-8">
+            <div class="text-center max-w-3xl mx-auto space-y-3">
+                <h2 class="text-3xl font-bold tracking-tight text-white">Guia Interativo de Pinout GPIO (40 Pinos)</h2>
+                <p class="text-gray-400">Passe o mouse ou clique em qualquer pino do header padrão Raspberry Pi para descobrir sua função, voltagem e nome alternativo.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                <!-- Visual Board representation -->
+                <div class="lg:col-span-2 bg-gray-900/80 border border-gray-800 rounded-2xl p-6 sm:p-8 flex flex-col items-center space-y-6 glow-effect">
+                    <div class="flex justify-between w-full max-w-md items-center text-xs font-mono text-gray-400 border-b border-gray-800 pb-3">
+                        <span><i class="fa-solid fa-arrow-left text-raspberry-500 mr-1"></i> USB / Ethernet Side</span>
+                        <span class="text-raspberry-400 font-bold">PCB HEADER GPIO 40-PIN</span>
+                        <span>SD Card Side <i class="fa-solid fa-arrow-right text-raspberry-500 ml-1"></i></span>
+                    </div>
+
+                    <!-- 40 Pin Grid Container -->
+                    <div id="pinout-grid" class="grid grid-cols-2 gap-x-12 gap-y-2.5 w-full max-w-md bg-gray-950/80 p-6 rounded-2xl border border-gray-800">
+                        <!-- Pins generated via JS for maximum precision -->
+                    </div>
+
+                    <div class="flex flex-wrap justify-center gap-4 text-xs pt-2">
+                        <div class="flex items-center space-x-2"><span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span><span class="text-gray-300">3.3V / 5V (Energia)</span></div>
+                        <div class="flex items-center space-x-2"><span class="w-3 h-3 rounded-full bg-black border border-gray-600 inline-block"></span><span class="text-gray-300">GND (Terra)</span></div>
+                        <div class="flex items-center space-x-2"><span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span><span class="text-gray-300">GPIO Digital</span></div>
+                        <div class="flex items-center space-x-2"><span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span><span class="text-gray-300">ID / EEPROM</span></div>
+                        <div class="flex items-center space-x-2"><span class="w-3 h-3 rounded-full bg-blue-500 inline-block"></span><span class="text-gray-300">SPI / I2C / UART</span></div>
+                    </div>
+                </div>
+
+                <!-- Selected Pin Inspector Panel -->
+                <div class="bg-gray-900/80 border border-gray-800 rounded-2xl p-6 space-y-6">
+                    <div class="flex items-center space-x-3 border-b border-gray-800 pb-4">
+                        <div id="inspector-indicator" class="w-10 h-10 rounded-xl bg-raspberry-500/20 text-raspberry-500 flex items-center justify-center font-bold text-lg">
+                            <i class="fa-solid fa-info"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs text-gray-400 uppercase font-semibold">Inspetor de Pino</span>
+                            <h3 id="inspector-title" class="text-lg font-bold text-white">Selecione um Pino</h3>
+                        </div>
+                    </div>
+
+                    <div id="inspector-content" class="space-y-4 text-sm text-gray-300">
+                        <p class="text-xs text-gray-400 italic">Clique em qualquer pino do diagrama ao lado para visualizar informações detalhadas sobre sua pinagem, modo BCM, modo Físico e restrições elétricas.</p>
+                    </div>
+
+                    <div class="p-4 bg-gray-950 rounded-xl border border-gray-800 space-y-2 text-xs text-gray-400">
+                        <div class="font-semibold text-gray-200"><i class="fa-solid fa-lightbulb text-raspberry-500 mr-1"></i> Dica de Segurança GPIO:</div>
+                        <p>Os pinos GPIO do Raspberry Pi operam a <strong>3.3V</strong> e não são tolerantes a 5V. Aplicar 5V diretamente em um pino GPIO pode queimar permanentemente a placa.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: ALTERNATIVES & COPIES -->
+        <section id="tab-alternatives" class="tab-content hidden space-y-8">
+            <div class="text-center max-w-3xl mx-auto space-y-3">
+                <h2 class="text-3xl font-bold tracking-tight text-white">Cópias e Alternativas de Mercado</h2>
+                <p class="text-gray-400">Conheça as principais marcas concorrentes (Orange Pi, Banana Pi, Radxa Rock) que oferecem hardware alternativo e comparativos de especificações.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Orange Pi Card -->
+                <div class="bg-gray-900/60 border border-gray-800 rounded-2xl p-6 space-y-6 flex flex-col justify-between hover:border-orange-500/50 transition-all">
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="px-3 py-1 bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs font-bold rounded-lg">Orange Pi</span>
+                            <i class="fa-solid fa-bolt text-orange-400 text-xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-white">Orange Pi 5 / 5 Plus</h3>
+                        <p class="text-gray-400 text-xs leading-relaxed">
+                            Equipado com o poderoso chip Rockchip RK3588 (Octa-core), oferece até 32GB de RAM e NPU dedicada para Inteligência Artificial, superando o Pi 5 em força bruta de CPU.
+                        </p>
+                        <div class="space-y-2 text-xs text-gray-300 pt-2 border-t border-gray-800">
+                            <div class="flex justify-between"><span>SoC:</span> <strong class="text-white">Rockchip RK3588</strong></div>
+                            <div class="flex justify-between"><span>RAM Máxima:</span> <strong class="text-white">Até 32GB LPDDR4/4X</strong></div>
+                            <div class="flex justify-between"><span>Destaque:</span> <strong class="text-orange-400">NPU 6 TOPS para IA</strong></div>
+                        </div>
+                    </div>
+                    <div class="p-3 bg-gray-950 rounded-xl text-xs text-gray-400 border border-gray-800">
+                        Excelente para computação de borda, servidores de IA e emulação pesada.
+                    </div>
+                </div>
+
+                <!-- Banana Pi Card -->
+                <div class="bg-gray-900/60 border border-gray-800 rounded-2xl p-6 space-y-6 flex flex-col justify-between hover:border-yellow-500/50 transition-all">
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="px-3 py-1 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 text-xs font-bold rounded-lg">Banana Pi</span>
+                            <i class="fa-solid fa-seedling text-yellow-400 text-xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-white">Banana Pi BPI-R3 / M5</h3>
+                        <p class="text-gray-400 text-xs leading-relaxed">
+                            Focado em roteamento avançado de rede (Wi-Fi 6, múltiplas portas Ethernet de 2.5GbE) e servidores NAS compactos com alta taxa de transferência.
+                        </p>
+                        <div class="space-y-2 text-xs text-gray-300 pt-2 border-t border-gray-800">
+                            <div class="flex justify-between"><span>SoC:</span> <strong class="text-white">MediaTek Filogic 830</strong></div>
+                            <div class="flex justify-between"><span>Rede:</span> <strong class="text-white">Dual 2.5GbE + Wi-Fi 6</strong></div>
+                            <div class="flex justify-between"><span>Destaque:</span> <strong class="text-yellow-400">Roteador OpenWrt nativo</strong></div>
+                        </div>
+                    </div>
+                    <div class="p-3 bg-gray-950 rounded-xl text-xs text-gray-400 border border-gray-800">
+                        Ideal para substituir roteadores comerciais por soluções de código aberto.
+                    </div>
+                </div>
+
+                <!-- Rock Pi / Radxa Card -->
+                <div class="bg-gray-900/60 border border-gray-800 rounded-2xl p-6 space-y-6 flex flex-col justify-between hover:border-cyan-500/50 transition-all">
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="px-3 py-1 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-xs font-bold rounded-lg">Radxa Rock 5</span>
+                            <i class="fa-solid fa-gem text-cyan-400 text-xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-white">Radxa Rock 5B</h3>
+                        <p class="text-gray-400 text-xs leading-relaxed">
+                            Placa de nível industrial com acabamento premium, slots M.2 para SSD NVMe em tamanho completo e saídas de vídeo HDMI 2.1 8K.
+                        </p>
+                        <div class="space-y-2 text-xs text-gray-300 pt-2 border-t border-gray-800">
+                            <div class="flex justify-between"><span>SoC:</span> <strong class="text-white">Rockchip RK3588</strong></div>
+                            <div class="flex justify-between"><span>Armazenamento:</span> <strong class="text-white">Socket M.2 M-Key (NVMe)</strong></div>
+                            <div class="flex justify-between"><span>Destaque:</span> <strong class="text-cyan-400">Saída HDMI 2.1 8K</strong></div>
+                        </div>
+                    </div>
+                    <div class="p-3 bg-gray-950 rounded-xl text-xs text-gray-400 border border-gray-800">
+                        Construção robusta para aplicações comerciais e quiosques digitais de alta exigência.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 5: ACCESSORIES -->
+        <section id="tab-accessories" class="tab-content hidden space-y-8">
+            <div class="text-center max-w-3xl mx-auto space-y-3">
+                <h2 class="text-3xl font-bold tracking-tight text-white">Acessórios Essenciais</h2>
+                <p class="text-gray-400">Componentes indispensáveis para transformar sua placa em um setup completo e seguro.</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="bg-gray-900/60 border border-gray-800 p-6 rounded-2xl space-y-3">
+                    <div class="text-raspberry-500 text-xl"><i class="fa-solid fa-bolt"></i></div>
+                    <h3 class="text-lg font-bold text-white">Fontes USB-C PD</h3>
+                    <p class="text-xs text-gray-400">Fontes oficiais de 5V / 5A com suporte a Power Delivery para garantir energia estável ao Pi 5 e periféricos conectados.</p>
+                </div>
+                <div class="bg-gray-900/60 border border-gray-800 p-6 rounded-2xl space-y-3">
+                    <div class="text-raspberry-500 text-xl"><i class="fa-solid fa-fan"></i></div>
+                    <h3 class="text-lg font-bold text-white">Coolers e Cases Ativos</h3>
+                    <p class="text-xs text-gray-400">Dissipadores de alumínio e ventoinhas PWM controladas termicamente que evitam a redução de clock por superaquecimento.</p>
+                </div>
+                <div class="bg-gray-900/60 border border-gray-800 p-6 rounded-2xl space-y-3">
+                    <div class="text-raspberry-500 text-xl"><i class="fa-solid fa-sd-card"></i></div>
+                    <h3 class="text-lg font-bold text-white">Cartões MicroSD & NVMe</h3>
+                    <p class="text-xs text-gray-400">Cartões de classe A2 de alta durabilidade e adaptadores PCIe para SSDs NVMe de alta velocidade de leitura.</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="border-t border-gray-800 mt-16 bg-[#0b0f17]">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-500 gap-4">
+            <p>&copy; 2026 Raspberry Pi Complete Universe. Guia técnico interativo.</p>
+            <div class="flex space-x-6">
+                <span class="hover:text-raspberry-500 cursor-pointer" onclick="switchTab('models')">Specs</span>
+                <span class="hover:text-raspberry-500 cursor-pointer" onclick="switchTab('pinout')">Pinout GPIO</span>
+                <span class="hover:text-raspberry-500 cursor-pointer" onclick="switchTab('alternatives')">Alternativas</span>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Tab Switching Logic
+        function switchTab(tabId) {
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => tab.classList.add('hidden'));
+
+            const targetTab = document.getElementById('tab-' + tabId);
+            if (targetTab) {
+                targetTab.classList.remove('hidden');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            const navBtns = document.querySelectorAll('.nav-btn');
+            navBtns.forEach(btn => {
+                if(btn.getAttribute('data-target') === tabId) {
+                    btn.classList.add('bg-raspberry-600/20', 'text-raspberry-400', 'border', 'border-raspberry-500/30');
+                    btn.classList.remove('text-gray-300');
+                } else {
+                    btn.classList.remove('bg-raspberry-600/20', 'text-raspberry-400', 'border', 'border-raspberry-500/30');
+                    btn.classList.add('text-gray-300');
+                }
+            });
+        }
+
+        // Mobile Menu Toggle
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const mobileMenu = document.getElementById('mobile-menu');
+
+        mobileMenuBtn.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        function toggleMobileMenu() {
+            mobileMenu.classList.add('hidden');
+        }
+
+        // Model Filtering
+        function filterModelCategory(category) {
+            const cards = document.querySelectorAll('.model-card');
+            const btns = document.querySelectorAll('.mod-cat-btn');
+
+            btns.forEach(btn => {
+                btn.classList.remove('bg-raspberry-600', 'text-white');
+                btn.classList.add('bg-gray-800', 'text-gray-300');
+            });
+            event.target.classList.remove('bg-gray-800', 'text-gray-300');
+            event.target.classList.add('bg-raspberry-600', 'text-white');
+
+            cards.forEach(card => {
+                if (category === 'all' || card.getAttribute('data-category') === category) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        function filterModels() {
+            const query = document.getElementById('model-search').value.toLowerCase();
+            const cards = document.querySelectorAll('.model-card');
+
+            cards.forEach(card => {
+                const name = card.getAttribute('data-name');
+                if (name.includes(query)) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        // Standard 40-pin Raspberry Pi GPIO Definition Data
+        const gpioPins = [
+            { pin: 1, name: "3.3V Power", type: "power", bcm: "-", desc: "Alimentação de 3.3 Volts (Máximo de 50mA para circuitos externos)." },
+            { pin: 2, name: "5V Power", type: "power5", bcm: "-", desc: "Alimentação de 5 Volts direto da fonte USB de entrada." },
+            { pin: 3, name: "GPIO 2 (SDA)", type: "gpio", bcm: "BCM 2", desc: "Linha de dados I2C (SDA) com resistores de pull-up internos de 1.8kΩ." },
+            { pin: 4, name: "5V Power", type: "power5", bcm: "-", desc: "Alimentação de 5 Volts (Compartilhada com o barramento principal)." },
+            { pin: 5, name: "GPIO 3 (SCL)", type: "gpio", bcm: "BCM 3", desc: "Linha de clock I2C (SCL) com resistores de pull-up internos." },
+            { pin: 6, name: "GND (Ground)", type: "gnd", bcm: "-", desc: "Terra / Referência de tensão 0V." },
+            { pin: 7, name: "GPIO 4 (GPCLK0)", type: "gpio", bcm: "BCM 4", desc: "Pino GPIO de uso geral / Clock de uso geral 0." },
+            { pin: 8, name: "GPIO 14 (TXD)", type: "gpio", bcm: "BCM 14", desc: "Transmissor UART (Serial TX) para comunicação serial." },
+            { pin: 9, name: "GND (Ground)", type: "gnd", bcm: "-", desc: "Terra / Referência de tensão 0V." },
+            { pin: 10, name: "GPIO 15 (RXD)", type: "gpio", bcm: "BCM 15", desc: "Receptor UART (Serial RX) para comunicação serial." },
+            { pin: 11, name: "GPIO 17", type: "gpio", bcm: "BCM 17", desc: "Pino GPIO padrão de uso geral." },
+            { pin: 12, name: "GPIO 18 (PWM0)", type: "gpio", bcm: "BCM 18", desc: "GPIO com suporte a Modulação por Largura de Pulso (PWM hardware) e áudio PCM." },
+            { pin: 13, name: "GPIO 27", type: "gpio", bcm: "BCM 27", desc: "Pino GPIO padrão de uso geral." },
+            { pin: 14, name: "GND (Ground)", type: "gnd", bcm: "-", desc: "Terra / Referência de tensão 0V." },
+            { pin: 15, name: "GPIO 22", type: "gpio", bcm: "BCM 22", desc: "Pino GPIO padrão de uso geral." },
+            { pin: 16, name: "GPIO 23", type: "gpio", bcm: "BCM 23", desc: "Pino GPIO padrão de uso geral." },
+            { pin: 17, name: "3.3V Power", type: "power", bcm: "-", desc: "Alimentação adicional de 3.3 Volts." },
+            { pin: 18, name: "GPIO 24", type: "gpio", bcm: "BCM 24", desc: "Pino GPIO padrão de uso geral." },
+            { pin: 19, name: "GPIO 10 (SPI MOSI)", type: "spi", bcm: "BCM 10", desc: "Barramento SPI: Master Out Slave In (MOSI)." },
+            { pin: 20, name: "GND (Ground)", type: "gnd", bcm: "-", desc: "Terra / Referência de tensão 0V." },
+            { pin: 21, name: "GPIO 9 (SPI MISO)", type: "spi", bcm: "BCM 9", desc: "Barramento SPI: Master In Slave Out (MISO)." },
+            { pin: 22, name: "GPIO 25", type: "gpio", bcm: "BCM 25", desc: "Pino GPIO padrão de uso geral." },
+            { pin: 23, name: "GPIO 11 (SPI SCLK)", type: "spi", bcm: "BCM 11", desc: "Barramento SPI: Clock (SCLK)." },
+            { pin: 24, name: "GPIO 8 (SPI CE0)", type: "spi", bcm: "BCM 8", desc: "Barramento SPI: Chip Enable 0 (CE0)." },
+            { pin: 25, name: "GND (Ground)", type: "gnd", bcm: "-", desc: "Terra / Referência de tensão 0V." },
+            { pin: 26, name: "GPIO 7 (SPI CE1)", type: "spi", bcm: "BCM 7", desc: "Barramento SPI: Chip Enable 1 (CE1)." },
+            { pin: 27, name: "ID_SD (EEPROM)", type: "id", bcm: "-", desc: "Linha de dados para identificação automática de HATs (ID EEPROM I2C)." },
+            { pin: 28, name: "ID_SC (EEPROM)", type: "id", bcm: "-", desc: "Linha de clock para identificação automática de HATs (ID EEPROM I2C)." },
+            { pin: 29, name: "GPIO 5", type: "gpio", bcm: "BCM 5", desc: "Pino GPIO padrão de uso geral." },
+            { pin: 30, name: "GND (Ground)", type: "gnd", bcm: "-", desc: "Terra / Referência de tensão 0V." },
+            { pin: 31, name: "GPIO 6", type: "gpio", bcm: "BCM 6", desc: "Pino GPIO padrão de uso geral." },
+            { pin: 32, name: "GPIO 12 (PWM0)", type: "gpio", bcm: "BCM 12", desc: "GPIO com suporte a PWM hardware (Canal 0)." },
+            { pin: 33, name: "GPIO 13 (PWM1)", type: "gpio", bcm: "BCM 13", desc: "GPIO com suporte a PWM hardware (Canal 1)." },
+            { pin: 34, name: "GND (Ground)", type: "gnd", bcm: "-", desc: "Terra / Referência de tensão 0V." },
+            { pin: 35, name: "GPIO 19 (PCM_FS)", type: "gpio", bcm: "BCM 19", desc: "GPIO / Interface de áudio PCM Frame Sync." },
+            { pin: 36, name: "GPIO 16", type: "gpio", bcm: "BCM 16", desc: "Pino GPIO padrão de uso geral." },
+            { pin: 37, name: "GPIO 26", type: "gpio", bcm: "BCM 26", desc: "Pino GPIO padrão de uso geral." },
+            { pin: 38, name: "GPIO 20 (PCM_DIN)", type: "gpio", bcm: "BCM 20", desc: "GPIO / Interface PCM Data In." },
+            { pin: 39, name: "GND (Ground)", type: "gnd", bcm: "-", desc: "Terra / Referência de tensão 0V." },
+            { pin: 40, name: "GPIO 21 (PCM_DOUT)", type: "gpio", bcm: "BCM 21", desc: "GPIO / Interface PCM Data Out." }
+        ];
+
+        // Build Pinout Grid in HTML
+        function renderPinoutGrid() {
+            const grid = document.getElementById('pinout-grid');
+            if(!grid) return;
+
+            grid.innerHTML = '';
+            for (let i = 0; i < gpioPins.length; i += 2) {
+                const pinLeft = gpioPins[i];
+                const pinRight = gpioPins[i+1];
+
+                const rowDiv = document.createElement('div');
+                rowDiv.className = "col-span-2 grid grid-cols-2 gap-4";
+                rowDiv.innerHTML = `
+                    <div onclick="inspectPin(${pinLeft.pin})" class="pin-hover flex items-center justify-between p-2.5 rounded-xl bg-gray-900 border border-gray-800 cursor-pointer text-xs">
+                        <span class="text-gray-300 font-medium truncate">${pinLeft.pin}. ${pinLeft.name}</span>
+                        <span class="w-3 h-3 rounded-full ${getPinColorClass(pinLeft.type)} shrink-0 ml-2"></span>
+                    </div>
+                    <div onclick="inspectPin(${pinRight.pin})" class="pin-hover flex items-center justify-between p-2.5 rounded-xl bg-gray-900 border border-gray-800 cursor-pointer text-xs">
+                        <span class="w-3 h-3 rounded-full ${getPinColorClass(pinRight.type)} shrink-0 mr-2"></span>
+                        <span class="text-gray-300 font-medium truncate text-right">${pinRight.pin}. ${pinRight.name}</span>
+                    </div>
+                `;
+                grid.appendChild(rowDiv);
+            }
+        }
+
+        function getPinColorClass(type) {
+            switch(type) {
+                case 'power': return 'bg-red-500';
+                case 'power5': return 'bg-red-600';
+                case 'gnd': return 'bg-black border border-gray-600';
+                case 'spi': return 'bg-blue-500';
+                case 'id': return 'bg-amber-500';
+                default: return 'bg-emerald-500';
+            }
+        }
+
+        function inspectPin(pinNum) {
+            const pin = gpioPins.find(p => p.pin === pinNum);
+            if(!pin) return;
+
+            document.getElementById('inspector-title').innerText = `Pino Físico #${pin.pin}`;
+            document.getElementById('inspector-content').innerHTML = `
+                <div class="space-y-3">
+                    <div class="flex justify-between bg-gray-950 p-2.5 rounded-xl border border-gray-800">
+                        <span class="text-gray-400">Nome do Pino:</span>
+                        <strong class="text-white">${pin.name}</strong>
+                    </div>
+                    <div class="flex justify-between bg-gray-950 p-2.5 rounded-xl border border-gray-800">
+                        <span class="text-gray-400">Canal BCM:</span>
+                        <strong class="text-raspberry-400">${pin.bcm}</strong>
+                    </div>
+                    <div class="flex justify-between bg-gray-950 p-2.5 rounded-xl border border-gray-800">
+                        <span class="text-gray-400">Categoria:</span>
+                        <strong class="text-emerald-400 uppercase text-[10px] bg-emerald-500/20 px-2 py-0.5 rounded">${pin.type}</strong>
+                    </div>
+                    <div class="bg-gray-950 p-3 rounded-xl border border-gray-800 space-y-1">
+                        <span class="text-gray-400 block text-xs">Descrição Técnica:</span>
+                        <p class="text-gray-200 text-xs leading-relaxed">${pin.desc}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            switchTab('home');
+            renderPinoutGrid();
+            // Inspect pin 1 by default
+            inspectPin(1);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "name": "Pi Universe Pro - Guia Completo Raspberry Pi & Alternativas",
+  "description": "Enciclopédia interativa de placas Raspberry Pi, pinout GPIO de 40 pinos com simulador de código, comparativo de modelos, alternativas concorrentes e acessórios essenciais com fotos de alta qualidade.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
