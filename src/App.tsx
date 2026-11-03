@@ -31,7 +31,6 @@ import { ModelDetailModal } from './components/ModelDetailModal';
 import { PinoutSection } from './components/PinoutSection';
 import { ComparisonTool } from './components/ComparisonTool';
 import { PowerCalculator } from './components/PowerCalculator';
-import { TransferModal } from './components/TransferModal';
 
 // Images
 import pi5Img from './assets/images/raspberry_pi_5_board_1793723065529.jpg';
@@ -40,7 +39,6 @@ import gearImg from './assets/images/pi_accessories_gear_1793723069164.jpg';
 export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [selectedModelForModal, setSelectedModelForModal] = useState<BoardModel | null>(null);
-  const [isTransferOpen, setIsTransferOpen] = useState(false);
 
   // Model filter state
   const [modelCategory, setModelCategory] = useState<'all' | 'sbc' | 'zero' | 'mcu' | 'keyboard' | 'compute'>('all');
@@ -87,11 +85,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#080c14] text-zinc-100 flex flex-col font-sans selection:bg-[#e31b5d] selection:text-white">
       {/* Top Navigation */}
-      <Navbar
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        onOpenTransfer={() => setIsTransferOpen(true)}
-      />
+      <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* Main Content Area */}
       <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 w-full">
@@ -717,12 +711,6 @@ export default function App() {
         }}
       />
 
-      {/* Transfer & Export Modal */}
-      <TransferModal
-        isOpen={isTransferOpen}
-        onClose={() => setIsTransferOpen(false)}
-      />
-
       {/* Global Footer */}
       <footer className="border-t border-zinc-800 mt-20 bg-[#080c14]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col sm:flex-row items-center justify-between text-xs text-zinc-400 gap-6">
@@ -782,12 +770,17 @@ export default function App() {
             >
               Calculadora de Energia
             </button>
-            <button
-              onClick={() => setIsTransferOpen(true)}
-              className="text-[#e31b5d] hover:text-white font-semibold transition-colors cursor-pointer flex items-center space-x-1"
+            <a
+              href="https://github.com/Bernas1078/Pi-Universe-Pro"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white text-zinc-400 flex items-center space-x-1 transition-colors"
             >
-              <span>Transferir / Exportar</span>
-            </button>
+              <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+              </svg>
+              <span>GitHub</span>
+            </a>
           </div>
         </div>
       </footer>
