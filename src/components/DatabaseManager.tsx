@@ -787,7 +787,7 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
                 </>
               ) : (
                 <>
-                  O GitHub Pages é estático e lê automaticamente <code className="text-zinc-200 font-mono">{githubStatus.path}</code> a cada 15s ({totalPublicGithub} registos públicos). Para que todos os visitantes consigam gravar direto no GitHub a partir daqui, publique o backend (Vercel ou Cloud Run com <code className="text-zinc-200 font-mono">GITHUB_TOKEN</code>) e defina a variável <code className="text-zinc-200 font-mono">VITE_API_BASE_URL</code> no GitHub.
+                  O GitHub Pages é estático e lê automaticamente <code className="text-zinc-200 font-mono">{githubStatus.path}</code> a cada 15s ({totalPublicGithub} registos públicos). Para que todos os visitantes consigam gravar direto no GitHub a partir daqui, publique o <code className="text-zinc-200 font-mono">Cloudflare Worker</code> (grátis, com <code className="text-zinc-200 font-mono">GITHUB_TOKEN</code>) e defina a variável <code className="text-zinc-200 font-mono">VITE_API_BASE_URL</code> no GitHub.
                 </>
               )}
               {lastSyncTime && (

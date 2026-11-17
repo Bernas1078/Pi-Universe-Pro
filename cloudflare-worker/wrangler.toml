@@ -1,0 +1,8 @@
+name = "pi-universe-pro-db"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+[vars]
+GITHUB_REPO = "Bernas1078/Pi-Universe-Pro"
+GITHUB_BRANCH = "main"
+GITHUB_DB_PATH = "public/database.json"
