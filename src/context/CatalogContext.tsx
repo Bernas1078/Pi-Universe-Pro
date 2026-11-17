@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { BOARD_MODELS, BoardModel } from '../data/models';
 import { ALTERNATIVE_BOARDS, AlternativeBoard } from '../data/alternatives';
 import { ACCESSORIES_LIST, AccessoryItem } from '../data/accessories';
@@ -6,10 +6,16 @@ import { DbImageAsset, resolveImageSrc } from '../data/imagePresets';
 import { dbClearAll, dbDelete, dbGetAll, dbPut } from '../db/localDb';
 import {
   clearDeletedIds,
+  DEFAULT_GITHUB_STATUS,
   DeletedIdsState,
   EMPTY_PUBLIC_DB,
+  fetchGithubStatus,
   fetchPublicGithubDatabase,
+  GithubSaveResult,
+  GithubSyncStatus,
+  patchGithubDatabaseItem,
   PublicDatabasePayload,
+  pushDatabaseToGithub,
   readDeletedIds,
   serializePublicDatabase,
   writeDeletedIds
@@ -91,11 +97,22 @@ export interface ExtendedAccessoryItem extends AccessoryItem {
   rawRecord?: DbAccessoryRecord;
 }
 
+export interface SaveActionOutcome {
+  id?: string;
+  committedToGithub: boolean;
+  savedToDisk: boolean;
+  commitUrl?: string | null;
+  error?: string;
+}
+
 interface CatalogContextValue {
   loadingDb: boolean;
   syncingGithub: boolean;
+  githubStatus: GithubSyncStatus;
   githubSource: 'github' | 'bundled' | 'empty';
   githubUpdatedAt: string;
+  lastCommitUrl: string | null;
+  lastSyncTime: Date | null;
   publicCounts: { boards: number; accessories: number; images: number };
   pendingLocalChanges: number;
 
@@ -107,18 +124,21 @@ interface CatalogContextValue {
   allAlternativeBoards: ExtendedAlternativeBoard[];
   allAccessories: ExtendedAccessoryItem[];
 
-  saveBoard: (input: NewBoardInput, targetId?: string) => Promise<string>;
-  deleteBoard: (boardId: string) => Promise<void>;
-  saveAccessory: (input: NewAccessoryInput, targetId?: string) => Promise<string>;
-  deleteAccessory: (accessoryId: string) => Promise<void>;
-  saveImageAsset: (input: NewImageInput, editId?: string) => Promise<string>;
-  deleteImageAsset: (imageId: string) => Promise<void>;
+  saveBoard: (input: NewBoardInput, targetId?: string) => Promise<SaveActionOutcome>;
+  deleteBoard: (boardId: string) => Promise<SaveActionOutcome>;
+  saveAccessory: (input: NewAccessoryInput, targetId?: string) => Promise<SaveActionOutcome>;
+  deleteAccessory: (accessoryId: string) => Promise<SaveActionOutcome>;
+  saveImageAsset: (input: NewImageInput, editId?: string) => Promise<SaveActionOutcome>;
+  deleteImageAsset: (imageId: string) => Promise<SaveActionOutcome>;
   syncFromGithub: () => Promise<void>;
+  pushPendingToGithub: () => Promise<GithubSaveResult>;
   getPublicDatabaseJson: () => string;
   resetAllDatabase: () => Promise<void>;
 }
 
 const CatalogContext = createContext<CatalogContextValue | null>(null);
+
+const AUTO_SYNC_INTERVAL_MS = 15_000;
 
 function makeValidDocId(prefix: string, name: string): string {
   const slug = name
@@ -187,46 +207,74 @@ export const CatalogProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [loadingDb, setLoadingDb] = useState(true);
   const [syncingGithub, setSyncingGithub] = useState(false);
 
+  const [githubStatus, setGithubStatus] = useState<GithubSyncStatus>(DEFAULT_GITHUB_STATUS);
   const [githubDb, setGithubDb] = useState<PublicDatabasePayload>(EMPTY_PUBLIC_DB);
   const [githubSource, setGithubSource] = useState<'github' | 'bundled' | 'empty'>('empty');
+  const [lastCommitUrl, setLastCommitUrl] = useState<string | null>(null);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
   const [localBoards, setLocalBoards] = useState<DbBoardRecord[]>([]);
   const [localAccessories, setLocalAccessories] = useState<DbAccessoryRecord[]>([]);
   const [localImages, setLocalImages] = useState<LocalImageAsset[]>([]);
   const [deletedIds, setDeletedIds] = useState<DeletedIdsState>(() => readDeletedIds());
 
-  const loadAll = useCallback(async (isManualSync = false) => {
-    if (isManualSync) {
-      setSyncingGithub(true);
-    } else {
-      setLoadingDb(true);
-    }
+  // Prevent background polling from clobbering an in-flight save
+  const savingInFlightRef = useRef(false);
+
+  const loadAll = useCallback(async (mode: 'initial' | 'manual' | 'silent' = 'initial') => {
+    if (mode === 'silent' && savingInFlightRef.current) return;
+    if (mode === 'initial') setLoadingDb(true);
+    if (mode === 'manual') setSyncingGithub(true);
+
     try {
-      const [ghResult, boards, accessories, images] = await Promise.all([
+      const [status, ghResult, boards, accessories, images] = await Promise.all([
+        fetchGithubStatus(),
         fetchPublicGithubDatabase(),
         dbGetAll<DbBoardRecord>('boards'),
         dbGetAll<DbAccessoryRecord>('accessories'),
         dbGetAll<LocalImageAsset>('images')
       ]);
 
+      setGithubStatus(status);
       setGithubDb(ghResult.data);
       setGithubSource(ghResult.source);
       setLocalBoards(boards);
       setLocalAccessories(accessories);
       setLocalImages(images);
       setDeletedIds(readDeletedIds());
+      setLastSyncTime(new Date());
     } finally {
-      setLoadingDb(false);
-      setSyncingGithub(false);
+      if (mode === 'initial') setLoadingDb(false);
+      if (mode === 'manual') setSyncingGithub(false);
     }
   }, []);
 
+  // Initial load + automatic background sync (every 30s + when tab regains focus)
   useEffect(() => {
-    loadAll(false);
+    loadAll('initial');
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadAll('silent');
+      }
+    }, AUTO_SYNC_INTERVAL_MS);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadAll('silent');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [loadAll]);
 
   const syncFromGithub = useCallback(async () => {
-    await loadAll(true);
+    await loadAll('manual');
   }, [loadAll]);
 
   // Merged view: Public GitHub DB + Local Browser Edits (excluding locally deleted public IDs)
@@ -377,25 +425,114 @@ export const CatalogProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return [...customAcc, ...remainingBuiltin];
   }, [dbAccessories, dbImagesCompat, publicAccessoryIdSet]);
 
-  const removeFromDeleted = (kind: keyof DeletedIdsState, id: string) => {
-    setDeletedIds((prev) => {
-      if (!prev[kind].includes(id)) return prev;
-      const next = { ...prev, [kind]: prev[kind].filter((x) => x !== id) };
-      writeDeletedIds(next);
-      return next;
-    });
-  };
+  // Helper for atomic collaborative PATCH (never overwrites other visitors' edits!)
+  const autoPatchItem = useCallback(
+    async (params: {
+      collection: 'boards' | 'accessories' | 'images';
+      action: 'upsert' | 'delete';
+      record?: DbBoardRecord | DbAccessoryRecord | LocalImageAsset;
+      id?: string;
+      message: string;
+    }): Promise<GithubSaveResult> => {
+      savingInFlightRef.current = true;
+      setSyncingGithub(true);
+      try {
+        const result = await patchGithubDatabaseItem(params);
 
-  const addToDeleted = (kind: keyof DeletedIdsState, id: string) => {
-    setDeletedIds((prev) => {
-      if (prev[kind].includes(id)) return prev;
-      const next = { ...prev, [kind]: [...prev[kind], id] };
-      writeDeletedIds(next);
-      return next;
-    });
-  };
+        if (result.committedToGithub) {
+          const itemId = params.action === 'upsert' ? params.record?.id : params.id;
+          if (itemId) {
+            await dbDelete(params.collection, itemId);
+            if (params.collection === 'boards') {
+              setLocalBoards((prev) => prev.filter((b) => b.id !== itemId));
+            } else if (params.collection === 'accessories') {
+              setLocalAccessories((prev) => prev.filter((a) => a.id !== itemId));
+            } else {
+              setLocalImages((prev) => prev.filter((i) => i.id !== itemId));
+            }
+            setDeletedIds((prev) => {
+              const next = {
+                ...prev,
+                [params.collection]: prev[params.collection].filter((x) => x !== itemId)
+              };
+              writeDeletedIds(next);
+              return next;
+            });
+          }
 
-  const saveBoard = async (input: NewBoardInput, targetId?: string): Promise<string> => {
+          if (result.data) {
+            setGithubDb(result.data);
+          }
+          setGithubSource('github');
+          setLastCommitUrl(result.commitUrl || null);
+          setLastSyncTime(new Date());
+        } else if (result.savedToDisk) {
+          setLastSyncTime(new Date());
+        }
+        return result;
+      } finally {
+        savingInFlightRef.current = false;
+        setSyncingGithub(false);
+      }
+    },
+    []
+  );
+
+  // Full snapshot helper (used by pushPendingToGithub)
+  const autoCommitSnapshot = useCallback(
+    async (
+      nextBoards: DbBoardRecord[],
+      nextAccessories: DbAccessoryRecord[],
+      nextImages: LocalImageAsset[],
+      commitMessage: string
+    ): Promise<GithubSaveResult> => {
+      savingInFlightRef.current = true;
+      setSyncingGithub(true);
+      try {
+        const result = await pushDatabaseToGithub(nextBoards, nextAccessories, nextImages, commitMessage);
+
+        if (result.committedToGithub) {
+          await dbClearAll();
+          clearDeletedIds();
+          setLocalBoards([]);
+          setLocalAccessories([]);
+          setLocalImages([]);
+          setDeletedIds({ boards: [], accessories: [], images: [] });
+          setGithubDb(
+            result.data || {
+              version: 1,
+              repository: `${githubStatus.owner}/${githubStatus.repo}`,
+              updatedAt: result.updatedAt || new Date().toISOString(),
+              boards: nextBoards,
+              accessories: nextAccessories,
+              images: nextImages
+            }
+          );
+          setGithubSource('github');
+          setLastCommitUrl(result.commitUrl || null);
+          setLastSyncTime(new Date());
+        } else if (result.savedToDisk) {
+          setLastSyncTime(new Date());
+        }
+        return result;
+      } finally {
+        savingInFlightRef.current = false;
+        setSyncingGithub(false);
+      }
+    },
+    [githubStatus.owner, githubStatus.repo]
+  );
+
+  const pushPendingToGithub = useCallback(async (): Promise<GithubSaveResult> => {
+    return autoCommitSnapshot(
+      dbBoards,
+      dbAccessories,
+      dbImages,
+      'chore(db): sincronizar public/database.json com GitHub'
+    );
+  }, [autoCommitSnapshot, dbBoards, dbAccessories, dbImages]);
+
+  const saveBoard = async (input: NewBoardInput, targetId?: string): Promise<SaveActionOutcome> => {
     const docId = targetId || makeValidDocId('board', input.name);
     const safeImageId = input.imageId && /^[a-zA-Z0-9_\-]+$/.test(input.imageId) ? input.imageId : '';
     const safeImage = normalizeImageRef(input.image, safeImageId);
@@ -436,21 +573,63 @@ export const CatalogProvider: React.FC<{ children: React.ReactNode }> = ({ child
       updatedAt: Date.now()
     };
 
+    const nextLocalBoards = [record, ...localBoards.filter((b) => b.id !== docId)];
+    const nextDeleted: DeletedIdsState = {
+      ...deletedIds,
+      boards: deletedIds.boards.filter((x) => x !== docId)
+    };
     await dbPut('boards', record);
-    removeFromDeleted('boards', docId);
-    setLocalBoards((prev) => [record, ...prev.filter((b) => b.id !== docId)]);
-    return docId;
+    writeDeletedIds(nextDeleted);
+    setLocalBoards(nextLocalBoards);
+    setDeletedIds(nextDeleted);
+
+    const ghRes = await autoPatchItem({
+      collection: 'boards',
+      action: 'upsert',
+      record,
+      message: `chore(db): ${targetId ? 'editar' : 'adicionar'} placa ${record.name}`
+    });
+
+    return {
+      id: docId,
+      committedToGithub: ghRes.committedToGithub,
+      savedToDisk: ghRes.savedToDisk,
+      commitUrl: ghRes.commitUrl,
+      error: ghRes.error
+    };
   };
 
-  const deleteBoard = async (boardId: string): Promise<void> => {
+  const deleteBoard = async (boardId: string): Promise<SaveActionOutcome> => {
+    const nextLocalBoards = localBoards.filter((b) => b.id !== boardId);
+    const shouldTombstone = githubDb.boards.some((b) => b.id === boardId);
+    const nextDeleted: DeletedIdsState = {
+      ...deletedIds,
+      boards: shouldTombstone && !deletedIds.boards.includes(boardId)
+        ? [...deletedIds.boards, boardId]
+        : deletedIds.boards
+    };
+
     await dbDelete('boards', boardId);
-    setLocalBoards((prev) => prev.filter((b) => b.id !== boardId));
-    if (githubDb.boards.some((b) => b.id === boardId)) {
-      addToDeleted('boards', boardId);
-    }
+    writeDeletedIds(nextDeleted);
+    setLocalBoards(nextLocalBoards);
+    setDeletedIds(nextDeleted);
+
+    const ghRes = await autoPatchItem({
+      collection: 'boards',
+      action: 'delete',
+      id: boardId,
+      message: `chore(db): remover placa ${boardId}`
+    });
+
+    return {
+      committedToGithub: ghRes.committedToGithub,
+      savedToDisk: ghRes.savedToDisk,
+      commitUrl: ghRes.commitUrl,
+      error: ghRes.error
+    };
   };
 
-  const saveAccessory = async (input: NewAccessoryInput, targetId?: string): Promise<string> => {
+  const saveAccessory = async (input: NewAccessoryInput, targetId?: string): Promise<SaveActionOutcome> => {
     const docId = targetId || makeValidDocId('acc', input.name);
     const safeImageId = input.imageId && /^[a-zA-Z0-9_\-]+$/.test(input.imageId) ? input.imageId : '';
     const safeImage = normalizeImageRef(input.image || 'preset:gear', safeImageId);
@@ -471,21 +650,63 @@ export const CatalogProvider: React.FC<{ children: React.ReactNode }> = ({ child
       updatedAt: Date.now()
     };
 
+    const nextLocalAcc = [record, ...localAccessories.filter((a) => a.id !== docId)];
+    const nextDeleted: DeletedIdsState = {
+      ...deletedIds,
+      accessories: deletedIds.accessories.filter((x) => x !== docId)
+    };
     await dbPut('accessories', record);
-    removeFromDeleted('accessories', docId);
-    setLocalAccessories((prev) => [record, ...prev.filter((a) => a.id !== docId)]);
-    return docId;
+    writeDeletedIds(nextDeleted);
+    setLocalAccessories(nextLocalAcc);
+    setDeletedIds(nextDeleted);
+
+    const ghRes = await autoPatchItem({
+      collection: 'accessories',
+      action: 'upsert',
+      record,
+      message: `chore(db): ${targetId ? 'editar' : 'adicionar'} acessório ${record.name}`
+    });
+
+    return {
+      id: docId,
+      committedToGithub: ghRes.committedToGithub,
+      savedToDisk: ghRes.savedToDisk,
+      commitUrl: ghRes.commitUrl,
+      error: ghRes.error
+    };
   };
 
-  const deleteAccessory = async (accessoryId: string): Promise<void> => {
+  const deleteAccessory = async (accessoryId: string): Promise<SaveActionOutcome> => {
+    const nextLocalAcc = localAccessories.filter((a) => a.id !== accessoryId);
+    const shouldTombstone = githubDb.accessories.some((a) => a.id === accessoryId);
+    const nextDeleted: DeletedIdsState = {
+      ...deletedIds,
+      accessories: shouldTombstone && !deletedIds.accessories.includes(accessoryId)
+        ? [...deletedIds.accessories, accessoryId]
+        : deletedIds.accessories
+    };
+
     await dbDelete('accessories', accessoryId);
-    setLocalAccessories((prev) => prev.filter((a) => a.id !== accessoryId));
-    if (githubDb.accessories.some((a) => a.id === accessoryId)) {
-      addToDeleted('accessories', accessoryId);
-    }
+    writeDeletedIds(nextDeleted);
+    setLocalAccessories(nextLocalAcc);
+    setDeletedIds(nextDeleted);
+
+    const ghRes = await autoPatchItem({
+      collection: 'accessories',
+      action: 'delete',
+      id: accessoryId,
+      message: `chore(db): remover acessório ${accessoryId}`
+    });
+
+    return {
+      committedToGithub: ghRes.committedToGithub,
+      savedToDisk: ghRes.savedToDisk,
+      commitUrl: ghRes.commitUrl,
+      error: ghRes.error
+    };
   };
 
-  const saveImageAsset = async (input: NewImageInput, editId?: string): Promise<string> => {
+  const saveImageAsset = async (input: NewImageInput, editId?: string): Promise<SaveActionOutcome> => {
     const docId = editId || makeValidDocId('img', input.title);
     const record: LocalImageAsset = {
       id: docId,
@@ -498,18 +719,60 @@ export const CatalogProvider: React.FC<{ children: React.ReactNode }> = ({ child
       updatedAt: Date.now()
     };
 
+    const nextLocalImages = [record, ...localImages.filter((i) => i.id !== docId)];
+    const nextDeleted: DeletedIdsState = {
+      ...deletedIds,
+      images: deletedIds.images.filter((x) => x !== docId)
+    };
     await dbPut('images', record);
-    removeFromDeleted('images', docId);
-    setLocalImages((prev) => [record, ...prev.filter((i) => i.id !== docId)]);
-    return docId;
+    writeDeletedIds(nextDeleted);
+    setLocalImages(nextLocalImages);
+    setDeletedIds(nextDeleted);
+
+    const ghRes = await autoPatchItem({
+      collection: 'images',
+      action: 'upsert',
+      record,
+      message: `chore(db): ${editId ? 'editar' : 'adicionar'} imagem ${record.title}`
+    });
+
+    return {
+      id: docId,
+      committedToGithub: ghRes.committedToGithub,
+      savedToDisk: ghRes.savedToDisk,
+      commitUrl: ghRes.commitUrl,
+      error: ghRes.error
+    };
   };
 
-  const deleteImageAsset = async (imageId: string): Promise<void> => {
+  const deleteImageAsset = async (imageId: string): Promise<SaveActionOutcome> => {
+    const nextLocalImages = localImages.filter((i) => i.id !== imageId);
+    const shouldTombstone = githubDb.images.some((i) => i.id === imageId);
+    const nextDeleted: DeletedIdsState = {
+      ...deletedIds,
+      images: shouldTombstone && !deletedIds.images.includes(imageId)
+        ? [...deletedIds.images, imageId]
+        : deletedIds.images
+    };
+
     await dbDelete('images', imageId);
-    setLocalImages((prev) => prev.filter((i) => i.id !== imageId));
-    if (githubDb.images.some((i) => i.id === imageId)) {
-      addToDeleted('images', imageId);
-    }
+    writeDeletedIds(nextDeleted);
+    setLocalImages(nextLocalImages);
+    setDeletedIds(nextDeleted);
+
+    const ghRes = await autoPatchItem({
+      collection: 'images',
+      action: 'delete',
+      id: imageId,
+      message: `chore(db): remover imagem ${imageId}`
+    });
+
+    return {
+      committedToGithub: ghRes.committedToGithub,
+      savedToDisk: ghRes.savedToDisk,
+      commitUrl: ghRes.commitUrl,
+      error: ghRes.error
+    };
   };
 
   const getPublicDatabaseJson = useCallback((): string => {
@@ -530,8 +793,11 @@ export const CatalogProvider: React.FC<{ children: React.ReactNode }> = ({ child
       value={{
         loadingDb,
         syncingGithub,
+        githubStatus,
         githubSource,
         githubUpdatedAt: githubDb.updatedAt,
+        lastCommitUrl,
+        lastSyncTime,
         publicCounts,
         pendingLocalChanges,
         dbBoards,
@@ -547,6 +813,7 @@ export const CatalogProvider: React.FC<{ children: React.ReactNode }> = ({ child
         saveImageAsset,
         deleteImageAsset,
         syncFromGithub,
+        pushPendingToGithub,
         getPublicDatabaseJson,
         resetAllDatabase
       }}

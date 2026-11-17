@@ -122,7 +122,10 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
 }) => {
   const {
     syncingGithub,
+    githubStatus,
     githubSource,
+    lastCommitUrl,
+    lastSyncTime,
     publicCounts,
     pendingLocalChanges,
     dbBoards,
@@ -138,6 +141,7 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
     saveImageAsset,
     deleteImageAsset,
     syncFromGithub,
+    pushPendingToGithub,
     getPublicDatabaseJson,
     resetAllDatabase
   } = useCatalog();
@@ -458,7 +462,7 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
 
     setSaving(true);
     try {
-      await saveBoard(
+      const outcome = await saveBoard(
         {
           ...boardForm,
           keyFeatures: parsedFeatures.length > 0 ? parsedFeatures : ['Adicionada manualmente à base de dados'],
@@ -468,7 +472,19 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
       );
       setShowBoardForm(false);
       setEditingBoardId(undefined);
-      notify(editingBoardId ? 'Placa atualizada na base de dados local!' : 'Nova placa adicionada à base de dados!');
+      if (outcome.committedToGithub) {
+        notify(
+          editingBoardId
+            ? 'Placa atualizada e enviada automaticamente para public/database.json no GitHub!'
+            : 'Nova placa guardada automaticamente em public/database.json no GitHub!'
+        );
+      } else if (outcome.error) {
+        notify('Placa guardada localmente (erro ao enviar ao GitHub: ' + outcome.error + ')');
+      } else if (outcome.savedToDisk) {
+        notify('Placa guardada em public/database.json local! Configure GITHUB_TOKEN nas Secrets para envio automático ao GitHub.');
+      } else {
+        notify(editingBoardId ? 'Placa atualizada localmente!' : 'Nova placa guardada localmente!');
+      }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Erro ao guardar a placa.');
     } finally {
@@ -501,7 +517,7 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
 
     setSaving(true);
     try {
-      await saveAccessory(
+      const outcome = await saveAccessory(
         {
           ...accForm,
           compatibility: compatList.length > 0 ? compatList : ['Universal']
@@ -510,7 +526,17 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
       );
       setShowAccessoryForm(false);
       setEditingAccessoryId(undefined);
-      notify(editingAccessoryId ? 'Acessório atualizado!' : 'Novo acessório guardado na base de dados!');
+      if (outcome.committedToGithub) {
+        notify(
+          editingAccessoryId
+            ? 'Acessório atualizado automaticamente em public/database.json no GitHub!'
+            : 'Novo acessório guardado automaticamente no GitHub!'
+        );
+      } else if (outcome.savedToDisk) {
+        notify('Acessório guardado em public/database.json local! Configure GITHUB_TOKEN nas Secrets para envio direto.');
+      } else {
+        notify(editingAccessoryId ? 'Acessório atualizado localmente!' : 'Novo acessório guardado localmente!');
+      }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Erro ao guardar acessório.');
     } finally {
@@ -560,7 +586,7 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
 
     setSaving(true);
     try {
-      await saveImageAsset(
+      const outcome = await saveImageAsset(
         {
           title: imgTitle.trim(),
           category: imgCategory,
@@ -577,7 +603,11 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
       setImgUrl('');
       setImgAlt('');
       setImgUploadPreview('');
-      notify(editingImageId ? 'Imagem atualizada no Banco!' : 'Imagem adicionada ao Banco de Imagens!');
+      if (outcome.committedToGithub) {
+        notify('Imagem guardada automaticamente em public/database.json no GitHub!');
+      } else {
+        notify(editingImageId ? 'Imagem atualizada no Banco!' : 'Imagem adicionada ao Banco de Imagens!');
+      }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Erro ao guardar imagem.');
     } finally {
@@ -589,14 +619,26 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
     if (!confirmDelete) return;
     setSaving(true);
     try {
-      if (confirmDelete.type === 'board') await deleteBoard(confirmDelete.id);
-      if (confirmDelete.type === 'accessory') await deleteAccessory(confirmDelete.id);
-      if (confirmDelete.type === 'image') await deleteImageAsset(confirmDelete.id);
+      let committed = false;
+      if (confirmDelete.type === 'board') {
+        const res = await deleteBoard(confirmDelete.id);
+        committed = res.committedToGithub;
+      }
+      if (confirmDelete.type === 'accessory') {
+        const res = await deleteAccessory(confirmDelete.id);
+        committed = res.committedToGithub;
+      }
+      if (confirmDelete.type === 'image') {
+        const res = await deleteImageAsset(confirmDelete.id);
+        committed = res.committedToGithub;
+      }
       if (confirmDelete.type === 'reset_all') await resetAllDatabase();
 
       notify(
         confirmDelete.type === 'reset_all'
-          ? 'Base de dados reposta para os valores originais.'
+          ? 'Rascunhos locais descartados (dados públicos do GitHub mantidos).'
+          : committed
+          ? `"${confirmDelete.name}" atualizado automaticamente no GitHub!`
           : confirmDelete.isOverride
           ? `"${confirmDelete.name}" reposto para a versão original.`
           : `"${confirmDelete.name}" removido da base de dados.`
@@ -636,6 +678,18 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
     notify('Base de dados sincronizada a partir do GitHub!');
   };
 
+  const handlePushNow = async () => {
+    setErrorMsg(null);
+    const res = await pushPendingToGithub();
+    if (res.committedToGithub) {
+      notify('Alterações enviadas diretamente para public/database.json no GitHub!');
+    } else if (res.error) {
+      setErrorMsg(`Erro ao enviar para o GitHub: ${res.error}`);
+    } else {
+      setErrorMsg('Configure GITHUB_TOKEN nas Secrets do ambiente para ativar envio automático.');
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -643,13 +697,13 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
         <div className="space-y-2">
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-semibold bg-[#e31b5d]/15 text-[#e31b5d] border border-[#e31b5d]/30">
             <Github className="w-3.5 h-3.5" />
-            <span>Base de Dados Pública no GitHub ({GITHUB_DB_PATH})</span>
+            <span>Auto-Sync GitHub ({GITHUB_DB_PATH})</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
             Gestor de <span className="text-[#e31b5d]">Placas, Acessórios & Imagens</span>
           </h2>
           <p className="text-zinc-400 text-xs sm:text-sm max-w-2xl">
-            Adicione manualmente novas placas, edite qualquer modelo existente, registe acessórios com consumo em Watts e guarde tudo no ficheiro público <code className="text-zinc-200 font-mono">{GITHUB_DB_PATH}</code> do seu GitHub para que todos os visitantes vejam as alterações.
+            Base de dados auto-sincronizada com <code className="text-zinc-200 font-mono">{GITHUB_OWNER}/{GITHUB_REPO}</code>. Sempre que clicar em guardar numa placa, acessório ou imagem, o ficheiro <code className="text-zinc-200 font-mono">{GITHUB_DB_PATH}</code> é atualizado automaticamente no GitHub sem precisar de mexer em nada.
           </p>
         </div>
 
@@ -688,57 +742,79 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
         </div>
       </div>
 
-      {/* GitHub Public Database Sync Panel */}
-      <div className="bg-zinc-900/80 border border-zinc-800 rounded-3xl p-5 sm:p-6 space-y-5">
+      {/* Auto-Sync & Direct GitHub Save Panel */}
+      <div className="bg-zinc-900/80 border border-zinc-800 rounded-3xl p-5 sm:p-6 space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-base font-bold text-white flex items-center space-x-2">
                 <Globe className="w-4 h-4 text-emerald-400" />
-                <span>Guardar Base de Dados no GitHub (Público)</span>
+                <span>Sincronização Automática com GitHub</span>
               </h3>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-zinc-950 border border-zinc-700 text-zinc-300 font-mono">
-                {GITHUB_OWNER}/{GITHUB_REPO}
+                {githubStatus.owner}/{githubStatus.repo}
               </span>
-              {pendingLocalChanges > 0 ? (
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 border border-amber-500/40 text-amber-300">
-                  {pendingLocalChanges} {pendingLocalChanges === 1 ? 'alteração local' : 'alterações locais'} por guardar no GitHub
+
+              {githubStatus.autoCommitReady ? (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/40 text-emerald-300">
+                  Edição Pública Aberta a Todos · Save Direto no GitHub Ativo
                 </span>
               ) : (
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/40 text-emerald-300">
-                  Sincronizado ({totalPublicGithub} {totalPublicGithub === 1 ? 'registo público' : 'registos públicos'})
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 border border-amber-500/40 text-amber-300">
+                  Auto-Sync de Leitura Ativo · Aguardar GITHUB_TOKEN para commit direto
+                </span>
+              )}
+
+              {pendingLocalChanges > 0 && (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-pink-500/15 border border-pink-500/40 text-pink-300">
+                  {pendingLocalChanges} {pendingLocalChanges === 1 ? 'alteração pendente' : 'alterações pendentes'}
                 </span>
               )}
             </div>
+
             <p className="text-xs text-zinc-400">
-              O site carrega automaticamente <code className="text-zinc-200 font-mono">{GITHUB_DB_PATH}</code> diretamente do repositório GitHub ({githubSource === 'github' ? 'ligado ao GitHub em tempo real' : 'pronto para sincronizar com o GitHub'}). Assim que fizer commit desse ficheiro no GitHub, qualquer visitante vê as suas placas, acessórios e imagens.
+              {githubStatus.autoCommitReady ? (
+                <>
+                  Qualquer visitante pode adicionar, editar ou remover placas, acessórios e imagens sem login: cada alteração é fundida de forma segura no servidor e gravada direto em <code className="text-zinc-200 font-mono">{githubStatus.path}</code> no GitHub (auto-sync a cada 15s · {totalPublicGithub} registos públicos).
+                </>
+              ) : (
+                <>
+                  O site lê automaticamente <code className="text-zinc-200 font-mono">{githubStatus.path}</code> do GitHub a cada 15s ({githubSource === 'github' ? 'ligado ao GitHub' : 'ficheiro local'}). Para gravar direto no GitHub sem mexer em nada, defina a variável <code className="text-zinc-200 font-mono">GITHUB_TOKEN</code> nas Secrets do projeto.
+                </>
+              )}
+              {lastSyncTime && (
+                <span className="text-zinc-500 ml-1.5">
+                  (Última sincronização: {lastSyncTime.toLocaleTimeString('pt-PT')})
+                </span>
+              )}
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            <button
-              type="button"
-              onClick={handleCopyDatabaseJson}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all cursor-pointer ${
-                copiedJson
-                  ? 'bg-emerald-500 text-white'
-                  : 'bg-[#e31b5d] hover:bg-[#c81650] text-white shadow-lg shadow-[#e31b5d]/20'
-              }`}
-            >
-              {copiedJson ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              <span>{copiedJson ? 'JSON Copiado!' : '1. Copiar database.json'}</span>
-            </button>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {githubStatus.autoCommitReady && pendingLocalChanges > 0 && (
+              <button
+                type="button"
+                onClick={handlePushNow}
+                disabled={syncingGithub}
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center space-x-2 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <Github className="w-4 h-4" />
+                <span>Enviar Pendentes Agora</span>
+              </button>
+            )}
 
-            <a
-              href={githubSource === 'github' ? GITHUB_EDIT_DB_URL : GITHUB_NEW_DB_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white border border-zinc-700 text-xs font-bold flex items-center space-x-2 transition-colors"
-            >
-              <Github className="w-4 h-4" />
-              <span>2. Guardar no GitHub</span>
-              <ExternalLink className="w-3.5 h-3.5 text-zinc-400" />
-            </a>
+            {lastCommitUrl && (
+              <a
+                href={lastCommitUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3.5 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center space-x-1.5 transition-colors"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Ver Commit</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
 
             <button
               type="button"
@@ -748,13 +824,40 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
               title="Recarregar public/database.json diretamente do GitHub"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncingGithub ? 'animate-spin' : ''}`} />
-              <span>Sincronizar</span>
+              <span>{syncingGithub ? 'A sincronizar...' : 'Sincronizar'}</span>
             </button>
+
+            {!githubStatus.autoCommitReady && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleCopyDatabaseJson}
+                  className={`px-3.5 py-2.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer ${
+                    copiedJson
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-zinc-950 hover:bg-zinc-800 text-zinc-200 border border-zinc-700'
+                  }`}
+                >
+                  {copiedJson ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedJson ? 'Copiado!' : 'Copiar JSON'}</span>
+                </button>
+                <a
+                  href={githubSource === 'github' ? GITHUB_EDIT_DB_URL : GITHUB_NEW_DB_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 text-xs font-semibold flex items-center space-x-1.5 transition-colors"
+                >
+                  <Github className="w-3.5 h-3.5" />
+                  <span>Abrir Ficheiro</span>
+                  <ExternalLink className="w-3 h-3 text-zinc-400" />
+                </a>
+              </>
+            )}
 
             <button
               type="button"
               onClick={() => setShowJsonPreview((prev) => !prev)}
-              className="px-3.5 py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 text-xs font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer"
+              className="px-3.5 py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-800 text-xs font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer"
             >
               <FileCode2 className="w-3.5 h-3.5" />
               <span>{showJsonPreview ? 'Ocultar JSON' : 'Ver JSON'}</span>
@@ -762,42 +865,11 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
           </div>
         </div>
 
-        {/* 3-step guide */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px] bg-zinc-950/70 border border-zinc-800/80 rounded-2xl p-4">
-          <div className="space-y-0.5">
-            <div className="font-bold text-white">Passo 1 — Adicione ou edite abaixo</div>
-            <p className="text-zinc-400">
-              Crie ou edite placas, acessórios e imagens. As alterações ficam logo visíveis em pré-visualização no site.
-            </p>
-          </div>
-          <div className="space-y-0.5">
-            <div className="font-bold text-white">Passo 2 — Copie o database.json</div>
-            <p className="text-zinc-400">
-              Clique em <strong className="text-zinc-200">1. Copiar database.json</strong> para copiar toda a base de dados pronta.
-            </p>
-          </div>
-          <div className="space-y-0.5">
-            <div className="font-bold text-white">Passo 3 — Cole no GitHub e faça Commit</div>
-            <p className="text-zinc-400">
-              Clique em <strong className="text-zinc-200">2. Guardar no GitHub</strong>, substitua o conteúdo de <code className="text-zinc-200 font-mono">{GITHUB_DB_PATH}</code> e clique em <strong className="text-zinc-200">Commit changes</strong>. Se o ficheiro já existir, pode editar diretamente{' '}
-              <a
-                href={GITHUB_EDIT_DB_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-cyan-400 hover:underline"
-              >
-                aqui
-              </a>
-              .
-            </p>
-          </div>
-        </div>
-
         {/* Expandable JSON preview */}
         {showJsonPreview && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-[11px] text-zinc-400">
-              <span className="font-mono text-zinc-300">{GITHUB_DB_PATH}</span>
+              <span className="font-mono text-zinc-300">{githubStatus.path}</span>
               <span>{(publicJsonString.length / 1024).toFixed(1)} KB</span>
             </div>
             <textarea

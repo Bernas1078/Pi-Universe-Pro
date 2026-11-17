@@ -14,6 +14,16 @@ export const GITHUB_EDIT_DB_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_R
 export const GITHUB_NEW_DB_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/new/${GITHUB_BRANCH}?filename=${encodeURIComponent(GITHUB_DB_PATH)}`;
 export const GITHUB_VIEW_DB_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/${GITHUB_BRANCH}/${GITHUB_DB_PATH}`;
 
+// Fallback public backend API URL so visitors on static GitHub Pages (bernas1078.github.io)
+// can also save directly to GitHub without needing a token in the browser.
+const DEFAULT_REMOTE_API_ORIGIN = 'https://ais-pre-5wfdym7indhht2cmptglvx-772312327634.europe-west2.run.app';
+const CONFIGURED_API_ORIGIN = (
+  (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_API_BASE_URL ||
+  DEFAULT_REMOTE_API_ORIGIN
+).replace(/\/+$/, '');
+
+let resolvedApiBase: string | null = null;
+
 export interface PublicDatabasePayload {
   version: number;
   repository: string;
@@ -21,6 +31,29 @@ export interface PublicDatabasePayload {
   boards: DbBoardRecord[];
   accessories: DbAccessoryRecord[];
   images: LocalImageAsset[];
+}
+
+export interface GithubSyncStatus {
+  backendAvailable: boolean;
+  owner: string;
+  repo: string;
+  branch: string;
+  path: string;
+  autoCommitReady: boolean;
+  publicCollaborativeEdit: boolean;
+  authenticatedUser: string | null;
+}
+
+export interface GithubSaveResult {
+  ok: boolean;
+  backendAvailable: boolean;
+  savedToDisk: boolean;
+  committedToGithub: boolean;
+  commitSha?: string | null;
+  commitUrl?: string | null;
+  updatedAt?: string;
+  data?: PublicDatabasePayload;
+  error?: string;
 }
 
 export interface DeletedIdsState {
@@ -38,6 +71,17 @@ export const EMPTY_PUBLIC_DB: PublicDatabasePayload = {
   boards: [],
   accessories: [],
   images: []
+};
+
+export const DEFAULT_GITHUB_STATUS: GithubSyncStatus = {
+  backendAvailable: false,
+  owner: GITHUB_OWNER,
+  repo: GITHUB_REPO,
+  branch: GITHUB_BRANCH,
+  path: GITHUB_DB_PATH,
+  autoCommitReady: false,
+  publicCollaborativeEdit: false,
+  authenticatedUser: null
 };
 
 export function readDeletedIds(): DeletedIdsState {
@@ -86,11 +130,74 @@ export function normalizePublicDatabasePayload(raw: unknown): PublicDatabasePayl
   };
 }
 
+function isJsonResponse(res: Response): boolean {
+  const ct = res.headers.get('content-type') || '';
+  return ct.includes('application/json');
+}
+
+function getCandidateApiBases(): string[] {
+  if (resolvedApiBase !== null) {
+    return [resolvedApiBase];
+  }
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+  const bases = [''];
+  if (CONFIGURED_API_ORIGIN && CONFIGURED_API_ORIGIN !== currentOrigin) {
+    bases.push(CONFIGURED_API_ORIGIN);
+  }
+  return bases;
+}
+
+export async function fetchGithubStatus(): Promise<GithubSyncStatus> {
+  for (const base of getCandidateApiBases()) {
+    try {
+      const res = await fetch(`${base}/api/github/status`, {
+        cache: 'no-store'
+      });
+      if (res.ok && isJsonResponse(res)) {
+        resolvedApiBase = base;
+        const json = await res.json();
+        return {
+          backendAvailable: true,
+          owner: json.owner || GITHUB_OWNER,
+          repo: json.repo || GITHUB_REPO,
+          branch: json.branch || GITHUB_BRANCH,
+          path: json.path || GITHUB_DB_PATH,
+          autoCommitReady: Boolean(json.autoCommitReady),
+          publicCollaborativeEdit: Boolean(json.publicCollaborativeEdit ?? json.autoCommitReady),
+          authenticatedUser: json.authenticatedUser || null
+        };
+      }
+    } catch {
+      // Try next candidate
+    }
+  }
+  return DEFAULT_GITHUB_STATUS;
+}
+
 export async function fetchPublicGithubDatabase(): Promise<{
   data: PublicDatabasePayload;
   source: 'github' | 'bundled' | 'empty';
 }> {
-  // 1. Try live GitHub Raw first so newly committed public/database.json updates appear immediately
+  // 1. Prefer backend proxy /api/github/db (same-origin or remote Shared App URL)
+  for (const base of getCandidateApiBases()) {
+    try {
+      const res = await fetch(`${base}/api/github/db?t=${Date.now()}`, {
+        cache: 'no-store'
+      });
+      if (res.ok && isJsonResponse(res)) {
+        resolvedApiBase = base;
+        const json = await res.json();
+        return {
+          data: normalizePublicDatabasePayload(json.data),
+          source: json.source === 'github' ? 'github' : 'bundled'
+        };
+      }
+    } catch {
+      // Try next candidate
+    }
+  }
+
+  // 2. Live GitHub Raw fetch (direct read fallback)
   try {
     const res = await fetch(`${GITHUB_RAW_DB_URL}?t=${Date.now()}`, {
       cache: 'no-store'
@@ -106,7 +213,7 @@ export async function fetchPublicGithubDatabase(): Promise<{
     // Fall through to bundled ./database.json
   }
 
-  // 2. Fallback to ./database.json deployed alongside the site
+  // 3. Fallback to ./database.json deployed alongside the site
   try {
     const res = await fetch(`./database.json?t=${Date.now()}`, {
       cache: 'no-store'
@@ -125,6 +232,94 @@ export async function fetchPublicGithubDatabase(): Promise<{
   return {
     data: EMPTY_PUBLIC_DB,
     source: 'empty'
+  };
+}
+
+export async function patchGithubDatabaseItem(params: {
+  collection: 'boards' | 'accessories' | 'images';
+  action: 'upsert' | 'delete';
+  record?: DbBoardRecord | DbAccessoryRecord | LocalImageAsset;
+  id?: string;
+  message?: string;
+}): Promise<GithubSaveResult> {
+  for (const base of getCandidateApiBases()) {
+    try {
+      const res = await fetch(`${base}/api/github/db`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params)
+      });
+
+      if (!isJsonResponse(res)) continue;
+      resolvedApiBase = base;
+      const json = await res.json();
+      return {
+        ok: Boolean(json.ok),
+        backendAvailable: true,
+        savedToDisk: Boolean(json.savedToDisk),
+        committedToGithub: Boolean(json.committedToGithub),
+        commitSha: json.commitSha || null,
+        commitUrl: json.commitUrl || null,
+        updatedAt: json.updatedAt,
+        data: json.data ? normalizePublicDatabasePayload(json.data) : undefined,
+        error: json.error
+      };
+    } catch {
+      // Try next candidate
+    }
+  }
+
+  return {
+    ok: false,
+    backendAvailable: false,
+    savedToDisk: false,
+    committedToGithub: false
+  };
+}
+
+export async function pushDatabaseToGithub(
+  boards: DbBoardRecord[],
+  accessories: DbAccessoryRecord[],
+  images: LocalImageAsset[],
+  message?: string
+): Promise<GithubSaveResult> {
+  for (const base of getCandidateApiBases()) {
+    try {
+      const res = await fetch(`${base}/api/github/db`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          boards,
+          accessories,
+          images,
+          message
+        })
+      });
+
+      if (!isJsonResponse(res)) continue;
+      resolvedApiBase = base;
+      const json = await res.json();
+      return {
+        ok: Boolean(json.ok),
+        backendAvailable: true,
+        savedToDisk: Boolean(json.savedToDisk),
+        committedToGithub: Boolean(json.committedToGithub),
+        commitSha: json.commitSha || null,
+        commitUrl: json.commitUrl || null,
+        updatedAt: json.updatedAt,
+        data: json.data ? normalizePublicDatabasePayload(json.data) : undefined,
+        error: json.error
+      };
+    } catch {
+      // Try next candidate
+    }
+  }
+
+  return {
+    ok: false,
+    backendAvailable: false,
+    savedToDisk: false,
+    committedToGithub: false
   };
 }
 

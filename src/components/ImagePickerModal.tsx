@@ -60,7 +60,7 @@ export const ImagePickerModal: React.FC<ImagePickerModalProps> = ({
     const title = uploadTitle.trim() || 'Imagem de Hardware';
     setBusy(true);
     try {
-      const newId = await saveImageAsset({
+      const outcome = await saveImageAsset({
         title: title.slice(0, 120),
         category: 'board',
         sourceType: 'compressed',
@@ -68,7 +68,8 @@ export const ImagePickerModal: React.FC<ImagePickerModalProps> = ({
         altText: title.slice(0, 200),
         tags: ['upload', 'hardware']
       });
-      onSelect({ image: `imageRef:${newId}`, imageId: newId });
+      const newId = outcome.id || '';
+      onSelect({ image: newId ? `imageRef:${newId}` : uploadPreview, imageId: newId });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível guardar a imagem.');
@@ -89,7 +90,7 @@ export const ImagePickerModal: React.FC<ImagePickerModalProps> = ({
       setBusy(true);
       try {
         const title = urlTitle.trim() || 'Foto Externa de Hardware';
-        const newId = await saveImageAsset({
+        const outcome = await saveImageAsset({
           title: title.slice(0, 120),
           category: 'board',
           sourceType: 'url',
@@ -97,7 +98,8 @@ export const ImagePickerModal: React.FC<ImagePickerModalProps> = ({
           altText: title.slice(0, 200),
           tags: ['url', 'externo']
         });
-        onSelect({ image: `imageRef:${newId}`, imageId: newId });
+        const newId = outcome.id || '';
+        onSelect({ image: newId ? `imageRef:${newId}` : trimmed, imageId: newId });
         onClose();
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erro ao guardar URL na galeria.');
