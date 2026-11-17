@@ -759,9 +759,13 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/40 text-emerald-300">
                   Edição Pública Aberta a Todos · Save Direto no GitHub Ativo
                 </span>
+              ) : githubStatus.backendAvailable ? (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 border border-amber-500/40 text-amber-300">
+                  Auto-Sync de Leitura Ativo · Aguardar GITHUB_TOKEN no servidor
+                </span>
               ) : (
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 border border-amber-500/40 text-amber-300">
-                  Auto-Sync de Leitura Ativo · Aguardar GITHUB_TOKEN para commit direto
+                  GitHub Pages (Estático) · Ligue um backend público para Save direto de todos
                 </span>
               )}
 
@@ -777,9 +781,13 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
                 <>
                   Qualquer visitante pode adicionar, editar ou remover placas, acessórios e imagens sem login: cada alteração é fundida de forma segura no servidor e gravada direto em <code className="text-zinc-200 font-mono">{githubStatus.path}</code> no GitHub (auto-sync a cada 15s · {totalPublicGithub} registos públicos).
                 </>
+              ) : githubStatus.backendAvailable ? (
+                <>
+                  O site lê automaticamente <code className="text-zinc-200 font-mono">{githubStatus.path}</code> do GitHub a cada 15s ({githubSource === 'github' ? 'ligado ao GitHub' : 'ficheiro local'}). Para gravar direto no GitHub sem mexer em nada, defina a variável <code className="text-zinc-200 font-mono">GITHUB_TOKEN</code> nas Secrets do servidor.
+                </>
               ) : (
                 <>
-                  O site lê automaticamente <code className="text-zinc-200 font-mono">{githubStatus.path}</code> do GitHub a cada 15s ({githubSource === 'github' ? 'ligado ao GitHub' : 'ficheiro local'}). Para gravar direto no GitHub sem mexer em nada, defina a variável <code className="text-zinc-200 font-mono">GITHUB_TOKEN</code> nas Secrets do projeto.
+                  O GitHub Pages é estático e lê automaticamente <code className="text-zinc-200 font-mono">{githubStatus.path}</code> a cada 15s ({totalPublicGithub} registos públicos). Para que todos os visitantes consigam gravar direto no GitHub a partir daqui, publique o backend (Vercel ou Cloud Run com <code className="text-zinc-200 font-mono">GITHUB_TOKEN</code>) e defina a variável <code className="text-zinc-200 font-mono">VITE_API_BASE_URL</code> no GitHub.
                 </>
               )}
               {lastSyncTime && (
