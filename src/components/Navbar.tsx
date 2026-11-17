@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Cpu, Grid, Layers, Zap, Sliders, Menu, X, ArrowLeftRight, ExternalLink } from 'lucide-react';
+import { Cpu, Grid, Layers, Zap, Sliders, Menu, X, ArrowLeftRight, ExternalLink, Database } from 'lucide-react';
 
-export type NavTab = 'home' | 'models' | 'compare' | 'pinout' | 'alternatives' | 'accessories';
+export type NavTab = 'home' | 'models' | 'compare' | 'pinout' | 'alternatives' | 'accessories' | 'database';
 
 interface NavbarProps {
   activeTab: NavTab;
@@ -15,9 +15,10 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
     { id: 'home', label: 'Início', icon: <Cpu className="w-4 h-4" /> },
     { id: 'models', label: 'Modelos & Specs', icon: <Grid className="w-4 h-4" /> },
     { id: 'compare', label: 'Comparador', icon: <ArrowLeftRight className="w-4 h-4" /> },
-    { id: 'pinout', label: 'Pinout GPIO (40 Pinos)', icon: <Layers className="w-4 h-4" /> },
-    { id: 'alternatives', label: 'Cópias & Alternativas', icon: <Zap className="w-4 h-4" /> },
-    { id: 'accessories', label: 'Acessórios & Energia', icon: <Sliders className="w-4 h-4" /> }
+    { id: 'pinout', label: 'Pinout GPIO', icon: <Layers className="w-4 h-4" /> },
+    { id: 'alternatives', label: 'Alternativas', icon: <Zap className="w-4 h-4" /> },
+    { id: 'accessories', label: 'Acessórios', icon: <Sliders className="w-4 h-4" /> },
+    { id: 'database', label: 'Base de Dados', icon: <Database className="w-4 h-4" /> }
   ];
 
   const handleSelect = (tab: NavTab) => {

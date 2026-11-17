@@ -17,13 +17,15 @@ import {
   Camera,
   Monitor,
   Flame,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Database,
+  Plus,
+  Edit3
 } from 'lucide-react';
 
-// Data imports
-import { BOARD_MODELS, BoardModel } from './data/models';
-import { ALTERNATIVE_BOARDS, AlternativeBoard } from './data/alternatives';
-import { ACCESSORIES_LIST, AccessoryItem } from './data/accessories';
+// Data types & context
+import { BoardModel } from './data/models';
+import { useCatalog } from './context/CatalogContext';
 
 // Components
 import { Navbar, NavTab } from './components/Navbar';
@@ -31,14 +33,56 @@ import { ModelDetailModal } from './components/ModelDetailModal';
 import { PinoutSection } from './components/PinoutSection';
 import { ComparisonTool } from './components/ComparisonTool';
 import { PowerCalculator } from './components/PowerCalculator';
+import { DatabaseManager } from './components/DatabaseManager';
 
 // Images
 import pi5Img from './assets/images/raspberry_pi_5_board_1793723065529.jpg';
 import gearImg from './assets/images/pi_accessories_gear_1793723069164.jpg';
 
 export default function App() {
+  const {
+    allOfficialBoards,
+    allAlternativeBoards,
+    allAccessories,
+    dbBoards,
+    dbAccessories,
+    dbImages
+  } = useCatalog();
+
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [selectedModelForModal, setSelectedModelForModal] = useState<BoardModel | null>(null);
+  const [dbLaunchConfig, setDbLaunchConfig] = useState<{
+    key: number;
+    section: 'boards' | 'accessories' | 'images';
+    openBoardForm?: boolean;
+    boardType?: 'official' | 'alternative';
+    openAccessoryForm?: boolean;
+    editBoardId?: string;
+    editAccessoryId?: string;
+  }>({ key: 0, section: 'boards' });
+
+  const openDatabaseWith = (
+    section: 'boards' | 'accessories' | 'images',
+    opts?: {
+      openBoardForm?: boolean;
+      boardType?: 'official' | 'alternative';
+      openAccessoryForm?: boolean;
+      editBoardId?: string;
+      editAccessoryId?: string;
+    }
+  ) => {
+    setDbLaunchConfig({
+      key: Date.now(),
+      section,
+      openBoardForm: opts?.openBoardForm,
+      boardType: opts?.boardType,
+      openAccessoryForm: opts?.openAccessoryForm,
+      editBoardId: opts?.editBoardId,
+      editAccessoryId: opts?.editAccessoryId
+    });
+    setActiveTab('database');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Model filter state
   const [modelCategory, setModelCategory] = useState<'all' | 'sbc' | 'zero' | 'mcu' | 'keyboard' | 'compute'>('all');
@@ -53,7 +97,7 @@ export default function App() {
 
   // Filtered models
   const filteredModels = useMemo(() => {
-    return BOARD_MODELS.filter((m) => {
+    return allOfficialBoards.filter((m) => {
       if (modelCategory !== 'all' && m.category !== modelCategory) return false;
       if (modelSearch.trim()) {
         const q = modelSearch.toLowerCase();
@@ -65,15 +109,15 @@ export default function App() {
       }
       return true;
     });
-  }, [modelCategory, modelSearch]);
+  }, [allOfficialBoards, modelCategory, modelSearch]);
 
   // Filtered accessories
   const filteredAccessories = useMemo(() => {
-    return ACCESSORIES_LIST.filter((acc) => {
+    return allAccessories.filter((acc) => {
       if (accessoryCategory === 'all') return true;
       return acc.category === accessoryCategory;
     });
-  }, [accessoryCategory]);
+  }, [allAccessories, accessoryCategory]);
 
   const handleStartCompare = (model: BoardModel) => {
     setCompareA(model.id);
@@ -129,11 +173,11 @@ export default function App() {
                       <span>Explorar Pinout GPIO</span>
                     </button>
                     <button
-                      onClick={() => setActiveTab('compare')}
-                      className="px-6 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-semibold text-xs sm:text-sm border border-zinc-800 transition-all flex items-center space-x-2 cursor-pointer"
+                      onClick={() => openDatabaseWith('boards', { openBoardForm: true, boardType: 'official' })}
+                      className="px-6 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-200 font-semibold text-xs sm:text-sm border border-zinc-700 hover:border-[#e31b5d]/50 transition-all flex items-center space-x-2 cursor-pointer"
                     >
-                      <ArrowLeftRight className="w-4 h-4 text-cyan-400" />
-                      <span>Comparar Placas</span>
+                      <Database className="w-4 h-4 text-emerald-400" />
+                      <span>Adicionar Placa (BD)</span>
                     </button>
                   </div>
                 </div>
@@ -142,7 +186,7 @@ export default function App() {
                 <div className="lg:col-span-5">
                   <div
                     onClick={() => {
-                      const pi5 = BOARD_MODELS.find((m) => m.id === 'pi5');
+                      const pi5 = allOfficialBoards.find((m) => m.id === 'pi5');
                       if (pi5) setSelectedModelForModal(pi5);
                     }}
                     className="relative group rounded-2xl overflow-hidden border border-zinc-700/80 bg-zinc-950 shadow-2xl cursor-pointer hover:border-[#e31b5d]/60 transition-all"
@@ -178,8 +222,8 @@ export default function App() {
                 <div className="text-[#e31b5d] text-2xl font-bold">
                   <Cpu className="w-7 h-7" />
                 </div>
-                <div className="text-2xl font-bold text-white">12 Modelos & Módulos</div>
-                <p className="text-zinc-400 text-xs">Do Raspberry Pi 1 ao Pi 5, Compute Modules e Pico 2 com fotos reais.</p>
+                <div className="text-2xl font-bold text-white">{allOfficialBoards.length} Modelos & Módulos</div>
+                <p className="text-zinc-400 text-xs">Do Raspberry Pi 1 ao Pi 5, Compute Modules, Pico 2 e placas personalizadas.</p>
               </div>
 
               <div
@@ -200,19 +244,21 @@ export default function App() {
                 <div className="text-cyan-400 text-2xl font-bold">
                   <Zap className="w-7 h-7" />
                 </div>
-                <div className="text-2xl font-bold text-white">7 Concorrentes & IA</div>
+                <div className="text-2xl font-bold text-white">{allAlternativeBoards.length} Concorrentes & IA</div>
                 <p className="text-zinc-400 text-xs">NVIDIA Jetson (40 TOPS), Orange Pi, Radxa, Khadas VIM4, ODROID e RISC-V.</p>
               </div>
 
               <div
-                onClick={() => setActiveTab('accessories')}
-                className="bg-zinc-900/60 border border-zinc-800 p-6 rounded-2xl space-y-2 cursor-pointer hover:border-amber-500/50 hover:bg-zinc-900/90 transition-all"
+                onClick={() => openDatabaseWith('boards')}
+                className="bg-zinc-900/60 border border-zinc-800 p-6 rounded-2xl space-y-2 cursor-pointer hover:border-emerald-500/50 hover:bg-zinc-900/90 transition-all"
               >
-                <div className="text-amber-400 text-2xl font-bold">
-                  <Sliders className="w-7 h-7" />
+                <div className="text-emerald-400 text-2xl font-bold">
+                  <Database className="w-7 h-7" />
                 </div>
-                <div className="text-2xl font-bold text-white">Calculadora Watts</div>
-                <p className="text-zinc-400 text-xs">Simulador de consumo elétrico para fontes USB-C PD e periféricos.</p>
+                <div className="text-2xl font-bold text-white">
+                  Base de Dados ({dbBoards.length + dbAccessories.length + dbImages.length})
+                </div>
+                <p className="text-zinc-400 text-xs">Adicione e edite placas, acessórios e imagens na base de dados pública no GitHub.</p>
               </div>
             </div>
 
@@ -283,8 +329,17 @@ export default function App() {
                 Modelos & Especificações <span className="text-[#e31b5d]">Técnicas</span>
               </h2>
               <p className="text-zinc-400 text-sm sm:text-base">
-                Explore a linha oficial com fotografias reais em alta resolução, processadores Broadcom, memória RAM e conexões de cada geração.
+                Explore a linha oficial com fotografias reais em alta resolução, processadores Broadcom, memória RAM e adicione novas placas à base de dados.
               </p>
+              <div className="pt-2">
+                <button
+                  onClick={() => openDatabaseWith('boards', { openBoardForm: true, boardType: 'official' })}
+                  className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-[#e31b5d] hover:bg-[#c5124b] text-white text-xs font-bold shadow-lg shadow-[#e31b5d]/20 transition-all cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Adicionar Nova Placa Manualmente</span>
+                </button>
+              </div>
             </div>
 
             {/* Search and Category Filters */}
@@ -303,7 +358,7 @@ export default function App() {
               {/* Category tabs */}
               <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 text-xs">
                 {[
-                  { id: 'all', label: 'Todos os Modelos (12)' },
+                  { id: 'all', label: `Todos os Modelos (${allOfficialBoards.length})` },
                   { id: 'sbc', label: 'Placas SBC (Pi 5, 4, 3, 1)' },
                   { id: 'compute', label: 'Compute Modules (CM4 / CM5)' },
                   { id: 'zero', label: 'Linha Zero (Zero 2 W / W)' },
@@ -313,7 +368,7 @@ export default function App() {
                   <button
                     key={cat.id}
                     onClick={() => setModelCategory(cat.id as any)}
-                    className={`px-3.5 py-2 rounded-xl font-medium shrink-0 transition-all ${
+                    className={`px-3.5 py-2 rounded-xl font-medium shrink-0 transition-all cursor-pointer ${
                       modelCategory === cat.id
                         ? 'bg-[#e31b5d] text-white font-semibold shadow-sm shadow-[#e31b5d]/30'
                         : 'bg-zinc-950 text-zinc-300 hover:bg-zinc-800 hover:text-white border border-zinc-800'
@@ -392,7 +447,7 @@ export default function App() {
                   </div>
 
                   {/* Card Footer Actions */}
-                  <div className="p-6 pt-0 flex items-center justify-between gap-3 border-t border-zinc-800/80 mt-2">
+                  <div className="p-6 pt-3 flex items-center justify-between gap-2 border-t border-zinc-800/80 mt-2">
                     <button
                       onClick={() => setSelectedModelForModal(model)}
                       className="flex-1 py-2 rounded-xl text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors text-center cursor-pointer"
@@ -400,12 +455,19 @@ export default function App() {
                       Ver Detalhes
                     </button>
                     <button
+                      onClick={() => openDatabaseWith('boards', { editBoardId: model.id })}
+                      className="px-3 py-2 rounded-xl text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 transition-all flex items-center space-x-1 cursor-pointer"
+                      title="Editar esta placa"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-[#e31b5d]" />
+                      <span>Editar</span>
+                    </button>
+                    <button
                       onClick={() => handleStartCompare(model)}
                       className="px-3 py-2 rounded-xl text-xs font-semibold bg-[#e31b5d]/10 hover:bg-[#e31b5d] text-[#e31b5d] hover:text-white border border-[#e31b5d]/30 transition-all flex items-center space-x-1 cursor-pointer"
                       title="Comparar com outro modelo"
                     >
                       <ArrowLeftRight className="w-3.5 h-3.5" />
-                      <span>Comparar</span>
                     </button>
                   </div>
                 </div>
@@ -442,11 +504,20 @@ export default function App() {
               <p className="text-zinc-400 text-sm sm:text-base">
                 Placas com processadores Rockchip RK3588, redes 2.5 Gigabit duplas e NPUs de inteligência artificial que competem diretamente com a linha Raspberry Pi.
               </p>
+              <div className="pt-2">
+                <button
+                  onClick={() => openDatabaseWith('boards', { openBoardForm: true, boardType: 'alternative' })}
+                  className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-500/40 text-xs font-bold transition-all cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Adicionar Nova Placa Alternativa</span>
+                </button>
+              </div>
             </div>
 
             {/* Alternatives Cards Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {ALTERNATIVE_BOARDS.map((alt) => (
+              {allAlternativeBoards.map((alt) => (
                 <div
                   key={alt.id}
                   className="bg-zinc-900/70 border border-zinc-800 rounded-3xl overflow-hidden flex flex-col justify-between hover:border-zinc-700 transition-all shadow-xl"
@@ -528,11 +599,18 @@ export default function App() {
                   </div>
 
                   {/* Card bottom footer */}
-                  <div className="p-6 pt-0">
+                  <div className="p-6 pt-0 space-y-3">
                     <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 text-[11px] text-zinc-400">
                       <strong className="text-zinc-200 block mb-0.5">Ideal Para:</strong>
                       {alt.bestFor}
                     </div>
+                    <button
+                      onClick={() => openDatabaseWith('boards', { editBoardId: alt.id })}
+                      className="w-full py-2 rounded-xl text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-orange-400" />
+                      <span>Editar Placa</span>
+                    </button>
                   </div>
                 </div>
               ))}
@@ -623,23 +701,25 @@ export default function App() {
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-800 pb-4">
                 <div>
-                  <h3 className="text-xl font-bold text-white">Catálogo de Acessórios & Módulos</h3>
-                  <p className="text-xs text-zinc-400">Verifique compatibilidade com seu modelo de placa.</p>
+                  <h3 className="text-xl font-bold text-white">Catálogo de Acessórios & Módulos ({allAccessories.length})</h3>
+                  <p className="text-xs text-zinc-400">Verifique compatibilidade com seu modelo de placa ou adicione novos módulos.</p>
                 </div>
 
-                {/* Filter categories */}
-                <div className="flex gap-2 overflow-x-auto text-xs">
+                {/* Filter categories + Add button */}
+                <div className="flex flex-wrap items-center gap-2 text-xs">
                   {[
                     { id: 'all', label: 'Todos' },
                     { id: 'power', label: 'Alimentação' },
                     { id: 'cooling', label: 'Refrigeração' },
                     { id: 'storage', label: 'Armazenamento' },
-                    { id: 'camera', label: 'Câmera & Vídeo' }
+                    { id: 'camera', label: 'Câmera & Vídeo' },
+                    { id: 'hat', label: 'HATs' },
+                    { id: 'display', label: 'Displays' }
                   ].map((btn) => (
                     <button
                       key={btn.id}
                       onClick={() => setAccessoryCategory(btn.id)}
-                      className={`px-3 py-1.5 rounded-xl font-medium transition-all ${
+                      className={`px-3 py-1.5 rounded-xl font-medium transition-all cursor-pointer ${
                         accessoryCategory === btn.id
                           ? 'bg-amber-500 text-black font-bold'
                           : 'bg-zinc-900 text-zinc-300 hover:text-white border border-zinc-800'
@@ -648,6 +728,13 @@ export default function App() {
                       {btn.label}
                     </button>
                   ))}
+                  <button
+                    onClick={() => openDatabaseWith('accessories', { openAccessoryForm: true })}
+                    className="px-3.5 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 font-bold flex items-center space-x-1 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Adicionar</span>
+                  </button>
                 </div>
               </div>
 
@@ -656,26 +743,36 @@ export default function App() {
                 {filteredAccessories.map((acc) => (
                   <div
                     key={acc.id}
-                    className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 space-y-4 hover:border-zinc-700 transition-all flex flex-col justify-between"
+                    className="bg-zinc-900/60 border border-zinc-800 rounded-2xl overflow-hidden hover:border-zinc-700 transition-all flex flex-col justify-between"
                   >
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">
-                          {acc.category}
-                        </span>
-                        <span className="text-sm font-bold text-amber-400">{acc.msrp}</span>
-                      </div>
+                    <div>
+                      {acc.isCustom && (
+                        <div className="aspect-[16/9] bg-zinc-950 border-b border-zinc-800 relative">
+                          <img src={acc.image} alt={acc.name} className="w-full h-full object-cover" />
+                          <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded bg-black/80 text-[10px] font-bold text-emerald-400 border border-emerald-500/30">
+                            Base de Dados
+                          </span>
+                        </div>
+                      )}
+                      <div className="p-6 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">
+                            {acc.category}
+                          </span>
+                          <span className="text-sm font-bold text-amber-400">{acc.msrp}</span>
+                        </div>
 
-                      <h4 className="text-lg font-bold text-white">{acc.name}</h4>
-                      <p className="text-xs text-zinc-300 leading-relaxed">{acc.description}</p>
+                        <h4 className="text-lg font-bold text-white">{acc.name}</h4>
+                        <p className="text-xs text-zinc-300 leading-relaxed">{acc.description}</p>
 
-                      <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800/80 text-xs space-y-1">
-                        <span className="text-zinc-400 block text-[11px] font-semibold">Especificações:</span>
-                        <p className="text-zinc-200">{acc.specs}</p>
+                        <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800/80 text-xs space-y-1">
+                          <span className="text-zinc-400 block text-[11px] font-semibold">Especificações:</span>
+                          <p className="text-zinc-200">{acc.specs}</p>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="space-y-3 pt-3 border-t border-zinc-800">
+                    <div className="p-6 pt-3 space-y-3 border-t border-zinc-800">
                       <div className="text-[11px] text-zinc-400">
                         <strong className="text-zinc-200 block mb-1">Por que é essencial?</strong>
                         {acc.whyNeeded}
@@ -691,12 +788,35 @@ export default function App() {
                           </span>
                         ))}
                       </div>
+
+                      <button
+                        onClick={() => openDatabaseWith('accessories', { editAccessoryId: acc.id })}
+                        className="w-full py-2 rounded-xl text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Editar Acessório</span>
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
           </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB 7: BASE DE DADOS (PLACAS, ACESSÓRIOS & IMAGENS) */}
+        {/* ========================================================= */}
+        {activeTab === 'database' && (
+          <DatabaseManager
+            key={dbLaunchConfig.key}
+            initialSection={dbLaunchConfig.section}
+            initialOpenBoardForm={dbLaunchConfig.openBoardForm}
+            initialBoardType={dbLaunchConfig.boardType}
+            initialOpenAccessoryForm={dbLaunchConfig.openAccessoryForm}
+            initialEditBoardId={dbLaunchConfig.editBoardId}
+            initialEditAccessoryId={dbLaunchConfig.editAccessoryId}
+          />
         )}
       </main>
 
@@ -705,6 +825,7 @@ export default function App() {
         model={selectedModelForModal}
         onClose={() => setSelectedModelForModal(null)}
         onCompare={(model) => handleStartCompare(model)}
+        onEdit={(model) => openDatabaseWith('boards', { editBoardId: model.id })}
         onViewPinout={() => {
           setActiveTab('pinout');
           window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -769,6 +890,12 @@ export default function App() {
               className="hover:text-[#e31b5d] transition-colors cursor-pointer"
             >
               Calculadora de Energia
+            </button>
+            <button
+              onClick={() => openDatabaseWith('boards')}
+              className="hover:text-[#e31b5d] transition-colors cursor-pointer"
+            >
+              Base de Dados
             </button>
             <a
               href="https://github.com/Bernas1078/Pi-Universe-Pro"

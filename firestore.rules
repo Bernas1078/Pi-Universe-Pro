@@ -1,0 +1,339 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Global Safety Net — Default Deny Catch-All
+    // ===============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // Phase 3: Hardened Global Primitives
+    // ===============================================================
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'bernardo9.smo@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerifiedUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidOptionalString(data, field, maxLen) {
+      return !(field in data) || (data[field] is string && data[field].size() <= maxLen);
+    }
+
+    function isValidRequiredString(data, field, minLen, maxLen) {
+      return (field in data) && data[field] is string && data[field].size() >= minLen && data[field].size() <= maxLen;
+    }
+
+    function isValidStringList(listVal, maxItems, maxItemLen) {
+      return listVal is list
+        && listVal.size() <= maxItems
+        && (listVal.size() == 0 || (listVal[0] is string && listVal[0].size() >= 1 && listVal[0].size() <= maxItemLen));
+    }
+
+    function isValidImageRef(url) {
+      return url is string && url.size() >= 8 && url.size() <= 2048 && (
+        url[0:8] == 'https://' ||
+        url.matches('^preset:[a-zA-Z0-9_\\-]+$') ||
+        url.matches('^imageRef:[a-zA-Z0-9_\\-]+$')
+      );
+    }
+
+    function isValidStoredImageUrl(url, sourceType) {
+      return url is string && (
+        (sourceType == 'url' && url.size() >= 8 && url.size() <= 2048 && url[0:8] == 'https://') ||
+        (sourceType == 'preset' && url.size() >= 8 && url.size() <= 128 && url.matches('^preset:[a-zA-Z0-9_\\-]+$')) ||
+        (sourceType == 'compressed' && url.size() >= 24 && url.size() <= 100000 && (
+          url[0:23] == 'data:image/webp;base64,' ||
+          url[0:23] == 'data:image/jpeg;base64,' ||
+          url[0:22] == 'data:image/png;base64,'
+        ))
+      );
+    }
+
+    // ===============================================================
+    // Entity Validation Blueprints (Anti-Update-Gap)
+    // ===============================================================
+
+    function isValidImageAsset(data) {
+      return data.keys().hasAll([
+          'ownerId', 'ownerName', 'isPublic', 'title', 'category',
+          'sourceType', 'url', 'tags', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'ownerName', 'isPublic', 'title', 'category',
+          'sourceType', 'url', 'altText', 'tags', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.ownerId)
+        && isValidRequiredString(data, 'ownerName', 1, 100)
+        && data.isPublic is bool
+        && isValidRequiredString(data, 'title', 2, 120)
+        && data.category in ['board', 'accessory', 'pinout', 'other']
+        && data.sourceType in ['url', 'preset', 'compressed']
+        && isValidStoredImageUrl(data.url, data.sourceType)
+        && isValidOptionalString(data, 'altText', 200)
+        && isValidStringList(data.tags, 8, 40)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidBoard(data) {
+      return data.keys().hasAll([
+          'ownerId', 'ownerName', 'isPublic', 'boardType', 'name', 'brand',
+          'badge', 'badgeColor', 'category', 'releaseDate', 'msrp', 'status',
+          'image', 'description', 'soc', 'cpu', 'ram', 'storage',
+          'networking', 'power', 'keyFeatures', 'benchmarkScore',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'ownerName', 'isPublic', 'boardType', 'name', 'brand',
+          'badge', 'badgeColor', 'category', 'releaseDate', 'msrp', 'status',
+          'image', 'imageId', 'description', 'soc', 'cpu', 'gpu', 'npu', 'ram',
+          'storage', 'videoOut', 'audio', 'networking', 'usb', 'pcie', 'gpio',
+          'power', 'dimensions', 'keyFeatures', 'cons', 'bestFor',
+          'benchmarkScore', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.ownerId)
+        && isValidRequiredString(data, 'ownerName', 1, 100)
+        && data.isPublic is bool
+        && data.boardType in ['official', 'alternative']
+        && isValidRequiredString(data, 'name', 2, 120)
+        && isValidRequiredString(data, 'brand', 1, 80)
+        && isValidRequiredString(data, 'badge', 1, 100)
+        && isValidRequiredString(data, 'badgeColor', 1, 120)
+        && data.category in ['sbc', 'zero', 'mcu', 'keyboard', 'compute', 'alternative']
+        && isValidRequiredString(data, 'releaseDate', 1, 60)
+        && isValidRequiredString(data, 'msrp', 1, 80)
+        && data.status in ['Ativo', 'Legado', 'Foco Educacional', 'Industrial']
+        && isValidImageRef(data.image)
+        && (!('imageId' in data) || data.imageId == '' || isValidId(data.imageId))
+        && isValidRequiredString(data, 'description', 5, 1500)
+        && isValidRequiredString(data, 'soc', 1, 150)
+        && isValidRequiredString(data, 'cpu', 1, 200)
+        && isValidOptionalString(data, 'gpu', 200)
+        && isValidOptionalString(data, 'npu', 200)
+        && isValidRequiredString(data, 'ram', 1, 150)
+        && isValidRequiredString(data, 'storage', 1, 250)
+        && isValidOptionalString(data, 'videoOut', 250)
+        && isValidOptionalString(data, 'audio', 200)
+        && isValidRequiredString(data, 'networking', 1, 250)
+        && isValidOptionalString(data, 'usb', 200)
+        && isValidOptionalString(data, 'pcie', 200)
+        && isValidOptionalString(data, 'gpio', 200)
+        && isValidRequiredString(data, 'power', 1, 150)
+        && isValidOptionalString(data, 'dimensions', 120)
+        && isValidStringList(data.keyFeatures, 15, 250)
+        && (!('cons' in data) || isValidStringList(data.cons, 10, 250))
+        && isValidOptionalString(data, 'bestFor', 400)
+        && data.benchmarkScore is number && data.benchmarkScore >= 1 && data.benchmarkScore <= 100
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAccessory(data) {
+      return data.keys().hasAll([
+          'ownerId', 'ownerName', 'isPublic', 'name', 'category',
+          'compatibility', 'msrp', 'specs', 'description', 'whyNeeded',
+          'image', 'powerDrawWatts', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'ownerName', 'isPublic', 'name', 'category',
+          'compatibility', 'msrp', 'specs', 'description', 'whyNeeded',
+          'image', 'imageId', 'powerDrawWatts', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.ownerId)
+        && isValidRequiredString(data, 'ownerName', 1, 100)
+        && data.isPublic is bool
+        && isValidRequiredString(data, 'name', 2, 120)
+        && data.category in ['power', 'cooling', 'storage', 'camera', 'display', 'hat']
+        && isValidStringList(data.compatibility, 15, 100)
+        && isValidRequiredString(data, 'msrp', 1, 60)
+        && isValidRequiredString(data, 'specs', 2, 400)
+        && isValidRequiredString(data, 'description', 5, 1000)
+        && isValidRequiredString(data, 'whyNeeded', 2, 600)
+        && isValidImageRef(data.image)
+        && (!('imageId' in data) || data.imageId == '' || isValidId(data.imageId))
+        && data.powerDrawWatts is number && data.powerDrawWatts >= 0 && data.powerDrawWatts <= 100
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function imageReferenceExistsIfPresent(data) {
+      return !('imageId' in data)
+        || data.imageId == ''
+        || exists(/databases/$(database)/documents/images/$(data.imageId));
+    }
+
+    // ===============================================================
+    // Collection: /admins/{adminId}
+    // ===============================================================
+    match /admins/{adminId} {
+      allow get: if isValidId(adminId) && isVerifiedUser() && (request.auth.uid == adminId || isBootstrappedAdmin());
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    // ===============================================================
+    // Collection: /images/{imageId}
+    // ===============================================================
+    match /images/{imageId} {
+      allow get: if isValidId(imageId) && (
+        existing().isPublic == true ||
+        (isSignedIn() && existing().ownerId == request.auth.uid) ||
+        isAdmin()
+      );
+
+      allow list: if existing().isPublic == true ||
+        (isSignedIn() && existing().ownerId == request.auth.uid) ||
+        isBootstrappedAdmin();
+
+      allow create: if isVerifiedUser()
+        && isValidId(imageId)
+        && isValidImageAsset(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(imageId)
+        && isValidImageAsset(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (
+            existing().ownerId == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'title', 'category', 'sourceType', 'url', 'altText', 'tags', 'isPublic', 'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isVerifiedUser()
+        && isValidId(imageId)
+        && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+
+    // ===============================================================
+    // Collection: /boards/{boardId}
+    // ===============================================================
+    match /boards/{boardId} {
+      allow get: if isValidId(boardId) && (
+        existing().isPublic == true ||
+        (isSignedIn() && existing().ownerId == request.auth.uid) ||
+        isAdmin()
+      );
+
+      allow list: if existing().isPublic == true ||
+        (isSignedIn() && existing().ownerId == request.auth.uid) ||
+        isBootstrappedAdmin();
+
+      allow create: if isVerifiedUser()
+        && isValidId(boardId)
+        && isValidBoard(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && imageReferenceExistsIfPresent(incoming());
+
+      allow update: if isVerifiedUser()
+        && isValidId(boardId)
+        && isValidBoard(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && imageReferenceExistsIfPresent(incoming())
+        && (
+          isAdmin() ||
+          (
+            existing().ownerId == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'isPublic', 'boardType', 'name', 'brand', 'badge', 'badgeColor',
+              'category', 'releaseDate', 'msrp', 'status', 'image', 'imageId',
+              'description', 'soc', 'cpu', 'gpu', 'npu', 'ram', 'storage',
+              'videoOut', 'audio', 'networking', 'usb', 'pcie', 'gpio',
+              'power', 'dimensions', 'keyFeatures', 'cons', 'bestFor',
+              'benchmarkScore', 'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isVerifiedUser()
+        && isValidId(boardId)
+        && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+
+    // ===============================================================
+    // Collection: /accessories/{accessoryId}
+    // ===============================================================
+    match /accessories/{accessoryId} {
+      allow get: if isValidId(accessoryId) && (
+        existing().isPublic == true ||
+        (isSignedIn() && existing().ownerId == request.auth.uid) ||
+        isAdmin()
+      );
+
+      allow list: if existing().isPublic == true ||
+        (isSignedIn() && existing().ownerId == request.auth.uid) ||
+        isBootstrappedAdmin();
+
+      allow create: if isVerifiedUser()
+        && isValidId(accessoryId)
+        && isValidAccessory(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && imageReferenceExistsIfPresent(incoming());
+
+      allow update: if isVerifiedUser()
+        && isValidId(accessoryId)
+        && isValidAccessory(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && imageReferenceExistsIfPresent(incoming())
+        && (
+          isAdmin() ||
+          (
+            existing().ownerId == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'isPublic', 'name', 'category', 'compatibility', 'msrp', 'specs',
+              'description', 'whyNeeded', 'image', 'imageId', 'powerDrawWatts',
+              'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isVerifiedUser()
+        && isValidId(accessoryId)
+        && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+  }
+}

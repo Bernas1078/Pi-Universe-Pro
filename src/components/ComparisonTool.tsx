@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
-import { ArrowLeftRight, Check, Sparkles } from 'lucide-react';
-import { BOARD_MODELS, BoardModel } from '../data/models';
-import { ALTERNATIVE_BOARDS } from '../data/alternatives';
+import React, { useEffect, useState } from 'react';
+import { ArrowLeftRight, Sparkles } from 'lucide-react';
+import { useCatalog } from '../context/CatalogContext';
 
 interface ComparisonToolProps {
   initialBoardA?: string;
@@ -12,14 +11,23 @@ export const ComparisonTool: React.FC<ComparisonToolProps> = ({
   initialBoardA = 'pi5',
   initialBoardB = 'pi4b'
 }) => {
+  const { allOfficialBoards, allAlternativeBoards } = useCatalog();
   const [boardIdA, setBoardIdA] = useState(initialBoardA);
   const [boardIdB, setBoardIdB] = useState(initialBoardB);
 
-  // Combine standard models + alternative boards into unified list
+  useEffect(() => {
+    setBoardIdA(initialBoardA);
+  }, [initialBoardA]);
+
+  useEffect(() => {
+    setBoardIdB(initialBoardB);
+  }, [initialBoardB]);
+
+  // Combine standard + custom models + alternative boards into unified list
   const allAvailableBoards = [
-    ...BOARD_MODELS.map((b) => ({
+    ...allOfficialBoards.map((b) => ({
       id: b.id,
-      name: b.name,
+      name: b.isCustom ? `${b.name} (BD)` : b.name,
       soc: b.soc,
       cpu: b.cpu,
       ram: b.ram,
@@ -34,20 +42,20 @@ export const ComparisonTool: React.FC<ComparisonToolProps> = ({
       image: b.image,
       badge: b.badge
     })),
-    ...ALTERNATIVE_BOARDS.map((alt) => ({
+    ...allAlternativeBoards.map((alt) => ({
       id: alt.id,
-      name: alt.name,
+      name: alt.isCustom ? `${alt.name} (BD)` : alt.name,
       soc: alt.soc,
       cpu: alt.cpu,
       ram: alt.maxRam,
       storage: alt.storage,
       video: alt.displayOut,
-      usb: 'USB 3.0 / USB-C DP',
-      pcie: 'M.2 M-Key NVMe Gen 3 x4',
+      usb: alt.rawRecord?.usb || 'USB 3.0 / USB-C DP',
+      pcie: alt.rawRecord?.pcie || 'M.2 M-Key NVMe Gen 3 x4',
       networking: alt.networking,
-      power: '5V / 4A DC Type-C',
+      power: alt.rawRecord?.power || '5V / 4A DC Type-C',
       msrp: alt.priceRange,
-      score: alt.hardwarePowerRating * 20,
+      score: Math.round(alt.hardwarePowerRating * 20),
       image: alt.image,
       badge: alt.badge
     }))

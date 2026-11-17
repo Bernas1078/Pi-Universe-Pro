@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Zap, AlertTriangle, CheckCircle2, ShieldAlert, Cpu } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Zap, AlertTriangle, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { useCatalog } from '../context/CatalogContext';
 
 interface PeripheralOption {
   id: string;
@@ -9,6 +10,7 @@ interface PeripheralOption {
 }
 
 export const PowerCalculator: React.FC = () => {
+  const { dbAccessories } = useCatalog();
   const [selectedBoardId, setSelectedBoardId] = useState<string>('pi5');
   const [selectedPeripherals, setSelectedPeripherals] = useState<string[]>([
     'active-cooler',
@@ -27,15 +29,26 @@ export const PowerCalculator: React.FC = () => {
     { id: 'pico', name: 'Raspberry Pi Pico / Pico W (RP2040)', baseIdleW: 0.05, basePeakW: 0.3, defaultSupply: '5W Micro-USB ou Bateria' }
   ];
 
-  const peripheralList: PeripheralOption[] = [
-    { id: 'nvme-ssd', name: 'SSD NVMe M.2 (via PCIe HAT)', watts: 2.8, desc: 'Alta velocidade de leitura e boot ultra rápido' },
-    { id: 'active-cooler', name: 'Active Cooler / Ventoinha PWM', watts: 0.7, desc: 'Dissipador térmico ativo contra estrangulamento térmico' },
-    { id: 'external-hdd', name: 'HD Externo 2.5" USB 3.0 Mecânico', watts: 4.5, desc: 'Picos altos de rotação do motor em 5V' },
-    { id: 'camera-mod3', name: 'Camera Module 3 (Autofoco Sony IMX708)', watts: 1.3, desc: 'Alimentada via conector MIPI CSI' },
-    { id: 'touch-display', name: 'Tela Touchscreen Oficial 7" DSI', watts: 2.6, desc: 'Backlight LED e digitalizador de toque capacitivo' },
-    { id: 'usb-peripherals', name: 'Teclado + Mouse com iluminação LED', watts: 0.9, desc: 'Consumo padrão de periféricos USB' },
-    { id: 'relay-hat', name: 'Placa HAT com Relés e Sensores GPIO', watts: 1.2, desc: 'Bobinas de relé acionadas em 5V' }
-  ];
+  const peripheralList: PeripheralOption[] = useMemo(() => {
+    const base: PeripheralOption[] = [
+      { id: 'nvme-ssd', name: 'SSD NVMe M.2 (via PCIe HAT)', watts: 2.8, desc: 'Alta velocidade de leitura e boot ultra rápido' },
+      { id: 'active-cooler', name: 'Active Cooler / Ventoinha PWM', watts: 0.7, desc: 'Dissipador térmico ativo contra estrangulamento térmico' },
+      { id: 'external-hdd', name: 'HD Externo 2.5" USB 3.0 Mecânico', watts: 4.5, desc: 'Picos altos de rotação do motor em 5V' },
+      { id: 'camera-mod3', name: 'Camera Module 3 (Autofoco Sony IMX708)', watts: 1.3, desc: 'Alimentada via conector MIPI CSI' },
+      { id: 'touch-display', name: 'Tela Touchscreen Oficial 7" DSI', watts: 2.6, desc: 'Backlight LED e digitalizador de toque capacitivo' },
+      { id: 'usb-peripherals', name: 'Teclado + Mouse com iluminação LED', watts: 0.9, desc: 'Consumo padrão de periféricos USB' },
+      { id: 'relay-hat', name: 'Placa HAT com Relés e Sensores GPIO', watts: 1.2, desc: 'Bobinas de relé acionadas em 5V' }
+    ];
+    const custom: PeripheralOption[] = dbAccessories
+      .filter((a) => a.powerDrawWatts > 0)
+      .map((a) => ({
+        id: `db_${a.id}`,
+        name: `${a.name} (BD)`,
+        watts: a.powerDrawWatts,
+        desc: a.specs
+      }));
+    return [...custom, ...base];
+  }, [dbAccessories]);
 
   const activeBoard = boards.find((b) => b.id === selectedBoardId) || boards[0];
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Cpu, HardDrive, Wifi, Monitor, Zap, CheckCircle2, ArrowRight, ShieldAlert } from 'lucide-react';
+import { X, Cpu, HardDrive, Wifi, Monitor, Zap, CheckCircle2, ArrowRight, ShieldAlert, Edit3 } from 'lucide-react';
 import { BoardModel } from '../data/models';
 
 interface ModelDetailModalProps {
@@ -7,13 +7,15 @@ interface ModelDetailModalProps {
   onClose: () => void;
   onCompare: (model: BoardModel) => void;
   onViewPinout: () => void;
+  onEdit?: (model: BoardModel) => void;
 }
 
 export const ModelDetailModal: React.FC<ModelDetailModalProps> = ({
   model,
   onClose,
   onCompare,
-  onViewPinout
+  onViewPinout,
+  onEdit
 }) => {
   if (!model) return null;
 
@@ -156,12 +158,24 @@ export const ModelDetailModal: React.FC<ModelDetailModalProps> = ({
 
         {/* Modal Footer Actions */}
         <div className="p-6 bg-zinc-950 border-t border-zinc-800 flex flex-wrap gap-3 justify-end items-center">
+          {onEdit && (
+            <button
+              onClick={() => {
+                onEdit(model);
+                onClose();
+              }}
+              className="px-4 py-2 rounded-xl text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 transition-colors flex items-center space-x-1.5 cursor-pointer"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-[#e31b5d]" />
+              <span>Editar Placa</span>
+            </button>
+          )}
           <button
             onClick={() => {
               onViewPinout();
               onClose();
             }}
-            className="px-4 py-2 rounded-xl text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors flex items-center space-x-1.5"
+            className="px-4 py-2 rounded-xl text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors flex items-center space-x-1.5 cursor-pointer"
           >
             <span>Ver Pinout GPIO de 40 Pinos</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -171,7 +185,7 @@ export const ModelDetailModal: React.FC<ModelDetailModalProps> = ({
               onCompare(model);
               onClose();
             }}
-            className="px-5 py-2 rounded-xl text-xs font-semibold bg-[#e31b5d] hover:bg-[#c5124b] text-white shadow-lg shadow-[#e31b5d]/30 transition-all flex items-center space-x-1.5"
+            className="px-5 py-2 rounded-xl text-xs font-semibold bg-[#e31b5d] hover:bg-[#c5124b] text-white shadow-lg shadow-[#e31b5d]/30 transition-all flex items-center space-x-1.5 cursor-pointer"
           >
             <span>Comparar este Modelo</span>
           </button>
