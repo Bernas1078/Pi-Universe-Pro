@@ -479,9 +479,9 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
             : 'Nova placa guardada automaticamente em public/database.json no GitHub!'
         );
       } else if (outcome.error) {
-        notify('Placa guardada localmente (erro ao enviar ao GitHub: ' + outcome.error + ')');
+        setErrorMsg(`Guardado localmente, mas o GitHub devolveu erro: ${outcome.error}`);
       } else if (outcome.savedToDisk) {
-        notify('Placa guardada em public/database.json local! Configure GITHUB_TOKEN nas Secrets para envio automático ao GitHub.');
+        notify('Placa guardada localmente! Verifique GITHUB_TOKEN para envio automático ao GitHub.');
       } else {
         notify(editingBoardId ? 'Placa atualizada localmente!' : 'Nova placa guardada localmente!');
       }
@@ -532,8 +532,10 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
             ? 'Acessório atualizado automaticamente em public/database.json no GitHub!'
             : 'Novo acessório guardado automaticamente no GitHub!'
         );
+      } else if (outcome.error) {
+        setErrorMsg(`Guardado localmente, mas o GitHub devolveu erro: ${outcome.error}`);
       } else if (outcome.savedToDisk) {
-        notify('Acessório guardado em public/database.json local! Configure GITHUB_TOKEN nas Secrets para envio direto.');
+        notify('Acessório guardado localmente! Verifique GITHUB_TOKEN para envio direto.');
       } else {
         notify(editingAccessoryId ? 'Acessório atualizado localmente!' : 'Novo acessório guardado localmente!');
       }
@@ -605,6 +607,8 @@ export const DatabaseManager: React.FC<DatabaseManagerProps> = ({
       setImgUploadPreview('');
       if (outcome.committedToGithub) {
         notify('Imagem guardada automaticamente em public/database.json no GitHub!');
+      } else if (outcome.error) {
+        setErrorMsg(`Guardada localmente, mas o GitHub devolveu erro: ${outcome.error}`);
       } else {
         notify(editingImageId ? 'Imagem atualizada no Banco!' : 'Imagem adicionada ao Banco de Imagens!');
       }

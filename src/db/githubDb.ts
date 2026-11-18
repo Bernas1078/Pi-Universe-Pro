@@ -14,13 +14,18 @@ export const GITHUB_EDIT_DB_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_R
 export const GITHUB_NEW_DB_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/new/${GITHUB_BRANCH}?filename=${encodeURIComponent(GITHUB_DB_PATH)}`;
 export const GITHUB_VIEW_DB_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/${GITHUB_BRANCH}/${GITHUB_DB_PATH}`;
 
-// Fallback public backend API URL so visitors on static GitHub Pages (bernas1078.github.io)
-// can also save directly to GitHub without needing a token in the browser.
-const DEFAULT_REMOTE_API_ORIGIN = 'https://ais-pre-5wfdym7indhht2cmptglvx-772312327634.europe-west2.run.app';
-const CONFIGURED_API_ORIGIN = (
-  (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_API_BASE_URL ||
-  DEFAULT_REMOTE_API_ORIGIN
-).replace(/\/+$/, '');
+// Live Cloudflare Worker URL so all public visitors on GitHub Pages (bernas1078.github.io)
+// can save directly to Bernas1078/Pi-Universe-Pro/public/database.json without login.
+const DEFAULT_REMOTE_API_ORIGIN = 'https://pi-universe-pro-db.bernardo9-smo.workers.dev';
+
+function normalizeApiOrigin(raw: string | undefined): string {
+  const cleaned = (raw || '').trim().replace(/\/+$/, '');
+  if (!cleaned) return DEFAULT_REMOTE_API_ORIGIN;
+  if (/^https?:\/\//i.test(cleaned)) return cleaned;
+  return `https://${cleaned}`;
+}
+
+const CONFIGURED_API_ORIGIN = normalizeApiOrigin(import.meta.env.VITE_API_BASE_URL);
 
 let resolvedApiBase: string | null = null;
 
@@ -140,6 +145,13 @@ function getCandidateApiBases(): string[] {
     return [resolvedApiBase];
   }
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+  const isGithubPages =
+    typeof window !== 'undefined' && window.location.hostname.endsWith('.github.io');
+
+  if (isGithubPages && CONFIGURED_API_ORIGIN && CONFIGURED_API_ORIGIN !== currentOrigin) {
+    return [CONFIGURED_API_ORIGIN];
+  }
+
   const bases = [''];
   if (CONFIGURED_API_ORIGIN && CONFIGURED_API_ORIGIN !== currentOrigin) {
     bases.push(CONFIGURED_API_ORIGIN);
