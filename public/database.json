@@ -1,45 +1,8 @@
 {
   "version": 1,
   "repository": "Bernas1078/Pi-Universe-Pro",
-  "updatedAt": "2026-11-18T08:34:10.944Z",
-  "boards": [
-    {
-      "id": "board_raspbery_pi_200_test_lf4q5w",
-      "boardType": "official",
-      "name": "Raspbery pi 200 test",
-      "brand": "Raspberry Pi",
-      "badge": "Nova Placa",
-      "badgeColor": "border-pink-500/40 text-pink-400 bg-pink-500/10",
-      "category": "sbc",
-      "releaseDate": "2026",
-      "msrp": "$60",
-      "status": "Ativo",
-      "image": "preset:pi5",
-      "imageId": "",
-      "description": "000000",
-      "soc": "0000",
-      "cpu": "0000",
-      "gpu": "",
-      "npu": "",
-      "ram": "0000",
-      "storage": "0000",
-      "videoOut": "",
-      "audio": "",
-      "networking": "0000",
-      "usb": "",
-      "pcie": "",
-      "gpio": "Header padrão de 40 pinos",
-      "power": "5V / 5A USB-C PD",
-      "dimensions": "85 x 56 mm",
-      "keyFeatures": [
-        "Adicionada manualmente à base de dados"
-      ],
-      "cons": [],
-      "bestFor": "",
-      "benchmarkScore": 75,
-      "updatedAt": 1794990848750
-    }
-  ],
+  "updatedAt": "2026-11-18T08:35:26.388Z",
+  "boards": [],
   "accessories": [],
   "images": []
 }
